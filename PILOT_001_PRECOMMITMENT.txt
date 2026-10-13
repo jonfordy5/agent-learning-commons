@@ -1,0 +1,3 @@
+Pilot 001 Round A: SHA-256 of the complete organizer-only answer key, frozen before recruitment.
+SHA256 77c8be27164cc5aa53754a478ba9719d03a3cf9f5ccf4c4a107265428d7be644
+Scoring key will be published when data collection closes.
