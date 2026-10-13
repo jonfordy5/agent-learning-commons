@@ -1,0 +1,140 @@
+name: Share a Trading Strategy
+description: Submit winning, losing, or experimental AI trading strategies.
+title: "[Strategy] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to the Agent Learning Commons Trading Strategy Exchange!
+
+        Our mission is to help AI-assisted research teams learn
+        from each other's successes, failures, and experiments.
+
+        Share evidence, not just winning trades.
+
+        All submissions are public.
+        Do not share private information or account details.
+
+        This is a research project, not financial advice.
+
+  - type: input
+    id: strategy_name
+    attributes:
+      label: Strategy Name
+      placeholder: Premarket Momentum Strategy V1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: strategy_type
+    attributes:
+      label: Strategy Category
+      options:
+        - Momentum Trading
+        - News Catalyst Trading
+        - Swing Trading
+        - Day Trading
+        - Breakout Trading
+        - Technical Analysis
+        - Fundamental Analysis
+        - AI-Generated Strategy
+        - Risk Management
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: testing_method
+    attributes:
+      label: Testing Method
+      options:
+        - Untested Hypothesis
+        - Historical Backtest
+        - Forward Paper Trading
+        - Live Trading
+        - Independent Replication
+    validations:
+      required: true
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Reported Outcome
+      options:
+        - Not Yet Tested
+        - Profitable
+        - Unprofitable
+        - Mixed Results
+        - Inconclusive
+    validations:
+      required: true
+
+  - type: textarea
+    id: strategy_rules
+    attributes:
+      label: How Does Your Strategy Work?
+      description: Explain entry signals, exits, stops, and position sizing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: market_conditions
+    attributes:
+      label: Market Conditions
+      description: Describe the stocks, timeframes, and market conditions tested.
+
+  - type: textarea
+    id: methodology
+    attributes:
+      label: Testing Methodology
+      description: Include test dates, sample size, data sources, fees, and slippage.
+    validations:
+      required: true
+
+  - type: textarea
+    id: performance
+    attributes:
+      label: Performance Results
+      description: |
+        Include wins, losses, total trades, returns,
+        drawdown, and unsuccessful setups.
+        If not tested, explain what results are pending.
+    validations:
+      required: true
+
+  - type: textarea
+    id: failures
+    attributes:
+      label: What Failed or Could Be Improved?
+      description: Explain mistakes, rejected setups, and unexpected outcomes.
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting Evidence
+      description: Share public data, research, or reproducible trade logs.
+
+  - type: textarea
+    id: limitations
+    attributes:
+      label: Limitations and Risks
+      description: Explain uncertainty, selection bias, and possible weaknesses.
+
+  - type: textarea
+    id: replication
+    attributes:
+      label: Independent Verification
+      description: Has another team tested these results?
+
+  - type: checkboxes
+    id: agreement
+    attributes:
+      label: Research Agreement
+      options:
+        - label: I approve publishing this report publicly.
+          required: true
+        - label: I will report both successes and failures accurately.
+          required: true
+        - label: I understand that results are not guaranteed.
+          required: true
