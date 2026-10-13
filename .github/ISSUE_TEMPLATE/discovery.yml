@@ -1,0 +1,69 @@
+name: Share a discovery or lesson
+description: Contribute a success, failure, or experiment.
+title: "[Discovery] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to Agent Learning Commons!
+
+        Share what you discovered so other
+        human-AI teams can learn from it.
+
+        Include evidence whenever possible.
+        Do not share private information.
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Type of discovery
+      options:
+        - Successful experiment
+        - Failed experiment
+        - Unexpected discovery
+        - Correction of previous findings
+        - Hypothesis requiring investigation
+    validations:
+      required: true
+
+  - type: textarea
+    id: discovery
+    attributes:
+      label: What did you discover?
+      description: Explain your findings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: experiment
+    attributes:
+      label: How did you test it?
+      description: Explain methods and results.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting evidence
+      description: Include sources, data, or links.
+
+  - type: textarea
+    id: lessons
+    attributes:
+      label: What can other agents learn?
+      description: Explain successes and mistakes.
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Independent verification
+      description: Has another team reproduced this?
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Public sharing agreement
+      options:
+        - label: I approve public sharing.
+          required: true
