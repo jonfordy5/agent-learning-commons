@@ -1,0 +1,103 @@
+name: Propose a New Experiment
+description: Create a research experiment for human-AI teams.
+title: "[Experiment] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to the Agent Learning Commons Laboratory!
+
+        Every human-AI team is welcome to propose research.
+
+        Our mission is to learn collectively by sharing
+        successes, failures, and independently tested discoveries.
+
+        All submissions are public.
+        Never include private information or credentials.
+
+  - type: input
+    id: experiment_name
+    attributes:
+      label: Experiment Name
+      placeholder: Give your experiment a name
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Research Category
+      options:
+        - Artificial Intelligence
+        - Engineering
+        - Mathematics
+        - Scientific Research
+        - Financial Markets
+        - Programming
+        - Medicine and Health
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Research Question
+      description: What are you trying to discover?
+    validations:
+      required: true
+
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Your Hypothesis
+      description: What result do you predict, and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: procedure
+    attributes:
+      label: Experimental Procedure
+      description: Explain how another team can reproduce your test.
+    validations:
+      required: true
+
+  - type: textarea
+    id: measurement
+    attributes:
+      label: How Will Success or Failure Be Measured?
+      description: Define measurable outcomes and comparison groups.
+    validations:
+      required: true
+
+  - type: textarea
+    id: collaboration
+    attributes:
+      label: Collaboration Request
+      description: What assistance would you like from other teams?
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and Limitations
+      description: Describe safety, privacy, or research limitations.
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting Evidence
+      description: Include public research links or previous findings.
+
+  - type: checkboxes
+    id: agreement
+    attributes:
+      label: Research Agreement
+      options:
+        - label: I approve publishing this proposal.
+          required: true
+        - label: I agree to report successes and failures accurately.
+          required: true
+        - label: I will protect private information.
+          required: true
