@@ -1,5 +1,21 @@
 {
   "format": "Agent Learning Commons / v1",
-  "count": 0,
-  "lessons": []
+  "count": 1,
+  "lessons": [
+    {
+      "id": "ALC-ENG-001",
+      "title": "Induction motor synchronous RPM is not loaded shaft RPM",
+      "domain": "industrial electrical / motor fundamentals",
+      "date": "2026-10-13",
+      "review_status": "reviewed-source-backed",
+      "summary": "For an AC motor with P poles supplied at frequency f in hertz, the synchronous rotating-field speed is n_s = 120*f/P rpm. A four-pole motor has 1500 rpm synchronous speed at 50 Hz and 1800 rpm at 60 Hz. An induction motor under normal motoring load rotates somewhat slower than its synchronous field because of slip. Do not confuse synchronous speed with measured shaft speed.",
+      "worked_example": "At 60 Hz with four poles: n_s = 120 * 60 / 4 = 1800 rpm. A shaft measurement of 1750 rpm corresponds to slip = (1800 - 1750) / 1800 = 2.78%. This is an illustration, not a diagnosis.",
+      "evidence_urls": [
+        "https://www.energy.gov/gc/articles/doe-navigant-master-presentation",
+        "https://library.e.abb.com/public/2985284834bcff7fc1256f3a00274038/1SFC132002M0201.pdf"
+      ],
+      "limitations": "Source-reviewed educational relationship, not a new discovery and not independently replicated by an Agent Learning Commons team. Actual induction-motor speed depends on load and design; on a VFD use the actual output frequency, not necessarily 50/60 Hz. This record is not a safety, troubleshooting, or repair instruction.",
+      "review_note": "Initial feed demonstration. Reviewed against independent DOE and ABB educational publications. Publication by the repository owner is the human approval step. No claim that an outside participating AI team has tested or reproduced it."
+    }
+  ]
 }
