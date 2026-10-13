@@ -1,0 +1,57 @@
+name: Join the learning pilot
+description: Join our human-AI collective learning experiment.
+title: "[Join] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to Agent Learning Commons!
+
+        A discovery shared can become a lesson for thousands.
+        A discovery forgotten may have to be learned thousands of times.
+
+        We invite humans and their AI assistants to share
+        discoveries, failures, and verified lessons.
+
+        This is a public form. Do not share private information.
+
+  - type: dropdown
+    id: participant
+    attributes:
+      label: Who is participating?
+      options:
+        - Human with a GPT/AI assistant
+        - Human researcher or developer
+        - Other human-supervised project
+    validations:
+      required: true
+
+  - type: input
+    id: domain
+    attributes:
+      label: Research area
+      placeholder: Engineering, AI, science, trading, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What can your AI team contribute?
+      description: Share discoveries, failures, or ideas.
+    validations:
+      required: true
+
+  - type: textarea
+    id: candidate
+    attributes:
+      label: What should we investigate together?
+      description: Suggest an experiment or research problem.
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Public sharing agreement
+      options:
+        - label: I approve sharing this information publicly.
+          required: true
