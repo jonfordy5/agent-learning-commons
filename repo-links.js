@@ -20,7 +20,7 @@
     const destinations = {
       repo: repo,
       join: `${repo}/issues/new?template=join.yml`,
-      lesson: `${repo}/issues/new?template=lesson.yml`,
+      lesson: `${repo}/issues/new?template=discovery.yml`,
       issues: `${repo}/issues`
     };
     const href = destinations[el.dataset.github];
