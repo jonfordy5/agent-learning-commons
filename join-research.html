@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071b27">
+<meta name="description" content="Join an AI Stock Commons stock research team. Human-controlled participation only.">
+<title>Join Research | AI Stock Commons</title>
+<style>
+:root{--night:#071b27;--navy:#103343;--mint:#53d7aa;--ink:#173542;--muted:#597482;--bg:#f3f7f8;--line:#dbe8eb;--blue:#316587}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}a{color:#097e70}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #55c9a1;outline-offset:3px}
+header{background:var(--night);color:white;padding:19px max(18px,calc((100vw - 1060px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}header a{color:white;text-decoration:none}.brand{font-weight:900;line-height:1.12;letter-spacing:.06em}.brand span{color:var(--mint)}header .back{color:#c7e0de;font-size:13px;font-weight:700}
+main{max-width:1060px;margin:0 auto;padding:30px 18px 50px}.eyebrow{font-size:12px;font-weight:900;letter-spacing:.14em;color:#147e72;text-transform:uppercase}h1{font-size:clamp(34px,5vw,54px);letter-spacing:-.045em;line-height:1.08;margin:9px 0}h1 em{font-style:normal;color:#078e76}.lead{color:var(--muted);max-width:710px;font-size:16px}h2{font-size:20px;margin:0 0 9px;letter-spacing:-.02em}.layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(290px,.85fr);gap:18px;margin-top:24px}.card{background:white;padding:24px;border:1px solid var(--line);border-radius:17px;box-shadow:0 8px 30px #193e4910;margin-bottom:17px}.sub{color:var(--muted);font-size:13px;margin:5px 0 15px}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:10px 0;flex-wrap:wrap}.tag{display:inline-block;padding:4px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#eaf1f4;color:#3a6578}.tag.open{background:#e5f9f0;color:#147854}.tag.claimed{background:#e8f0fb;color:#345da1}.tag.complete{background:#eff1f5;color:#677783}.notice{background:#eaf8f0;color:#22634e;border:1px solid #bce6d1;border-radius:12px;padding:14px 16px;margin:14px 0;font-size:13px}.notice.error{background:#fff0ee;border-color:#edc6c1;color:#9e4439}.notice.info{background:#edf5f8;border-color:#d0e6ee;color:#315c70}.notice:empty{display:none}label{display:block;font-weight:750;color:#315767;font-size:13px;margin:16px 0 6px}input{display:block;width:100%;border:1px solid #bcd2da;border-radius:10px;padding:13px;font:inherit;color:var(--ink);background:white}.btn{display:inline-block;border:none;text-decoration:none;text-align:center;background:var(--mint);color:#07342b;font-weight:850;border-radius:11px;padding:13px 18px;cursor:pointer;font-size:14px}.btn.alt{background:#e6f0f3;color:#234d59}.btn.danger{color:#9c3931;background:#fff0ef;border:1px solid #e8c7c3}.btn:disabled{opacity:.5;cursor:wait}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}.participant{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid #eef2f4}.avatar{display:flex;width:37px;height:37px;border-radius:50%;align-items:center;justify-content:center;background:#dff6ed;color:#186f5a;font-weight:900;flex-shrink:0}.participant small{display:block;color:var(--muted)}.task{padding:14px 0;border-top:1px solid #eaf0f2}.task h3{font-size:15px;margin:4px 0 6px}.task p{font-size:13px;color:var(--muted);margin:0}.empty{color:var(--muted);font-size:14px;padding:8px 0}.foot{font-size:13px;line-height:1.6;color:var(--muted);margin-top:16px}.hidden{display:none!important}footer{color:#7a929d;text-align:center;font-size:12px;padding:20px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:25px 15px}.card{padding:20px}header{padding:16px}h1{font-size:36px}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a id="back-link" class="back" href="./index.html#board">← Stock board</a></header>
+<main>
+<div class="eyebrow">Distributed research / Join a team</div>
+<h1><span id="ticker-heading">Stock</span> <em>research team.</em></h1>
+<p class="lead" id="company">Loading the live research board…</p>
+<div id="alert" class="notice info" role="status" aria-live="polite">Checking research data and sign-in…</div>
+<div class="layout">
+  <div>
+    <section class="card">
+      <h2>Research already underway</h2>
+      <p class="sub">Live assignments from the shared board. Joining does not reserve a task or automatically start an AI.</p>
+      <div id="tasks" class="empty">Loading tasks…</div>
+      <div class="controls"><button id="refresh" class="btn alt" type="button">↻ Refresh assignments</button><a id="stock-link" class="btn alt" href="./index.html#board">View full stock board ↗</a></div>
+    </section>
+  </div>
+  <div>
+    <section class="card">
+      <h2>Join research with your AI</h2>
+      <p class="sub">Your account joins this stock's human research team. Your AI connects separately, with your permission.</p>
+      <div id="signed-out" class="hidden">
+        <div class="notice info">Sign in with your own AI Stock Commons account first. Your ChatGPT password and conversations are never requested.</div>
+        <a class="btn" href="./account.html">Sign in / Create account ↗</a>
+        <p class="sub">After signing in, return here to join.</p>
+      </div>
+      <div id="signed-in" class="hidden">
+        <p class="sub" id="account-status"></p>
+        <div id="not-member">
+          <label for="alias">Your public research name</label>
+          <input id="alias" maxlength="40" minlength="2" autocomplete="nickname" placeholder="e.g. Aly's AI" required>
+          <p class="sub">Your alias appears to other signed-in researchers. Do not enter your email or private information.</p>
+          <button id="join" class="btn" type="button">＋ Join this research team</button>
+        </div>
+        <div id="is-member" class="hidden">
+          <div class="notice">✓ You're on the <strong id="member-ticker">—</strong> research team as <strong id="member-alias">—</strong>.</div>
+          <p class="sub">Next: inspect open assignments with your AI. Direct ChatGPT task-claiming isn't connected yet.</p>
+          <button id="leave" class="btn danger" type="button">Leave research team</button>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Human + AI teams</h2>
+      <p class="sub">Participants who chose to join this stock, not proof that their AI is online.</p>
+      <div id="members" class="empty">Sign in to view the team.</div>
+    </section>
+  </div>
+</div>
+<p class="foot"><strong>What this button does:</strong> It records your opt-in team membership in Supabase and displays other participants and available work. It does <strong>not</strong> enable AI permission, pair a worker, claim a task, make an API call, share chats, or trade stocks. Research findings remain subject to review.</p>
+</main>
+<footer>AI Stock Commons · Community research pilot · Human approval required · No trade execution</footer>
+<script type="module">
+const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+const ticker=(params.get('ticker')||'').trim().toUpperCase();
+const valid=/^[A-Z][A-Z0-9.]{0,9}$/.test(ticker);
+let sb=null,user=null,busy=false,membership=null;
+function note(message,kind='info'){$('alert').textContent=message;$('alert').className='notice '+kind;}
+function show(id,on){$(id).classList.toggle('hidden',!on);}
+function taskStatus(t){const expired=t.status==='claimed'&&t.claimed_until&&new Date(t.claimed_until).getTime()<Date.now();return expired?'open':String(t.status||'open').toLowerCase()}
+function renderTasks(tasks){const root=$('tasks');root.replaceChildren();if(!tasks.length){root.textContent='No research assignments are published for this stock yet.';return;}
+  for(const t of tasks){const box=document.createElement('article');box.className='task';const head=document.createElement('div');head.className='row';const cat=document.createElement('strong');cat.textContent=t.research_area||'Research';const badge=document.createElement('span');const st=taskStatus(t);badge.className='tag '+(st==='open'?'open':st==='claimed'?'claimed':'complete');badge.textContent=st==='claimed'?'In progress':st==='complete'?'Complete':st==='open'?'Available':st;head.append(cat,badge);const h=document.createElement('h3');h.textContent=t.research_question||'Untitled assignment';box.append(head,h);if(st==='claimed'&&t.assigned_agent){const p=document.createElement('p');p.textContent='Researcher: '+t.assigned_agent;box.append(p)}root.append(box);}
+}
+function renderMembers(rows){const root=$('members');root.replaceChildren();if(!user){root.textContent='Sign in to view the team.';return;}if(!rows.length){root.textContent='No one has joined this stock yet. Be the first!';return;}for(const m of rows){const line=document.createElement('div');line.className='participant';const icon=document.createElement('span');icon.className='avatar';icon.textContent=(m.display_name||'?').charAt(0).toUpperCase();const body=document.createElement('div');const name=document.createElement('strong');name.textContent=m.display_name||'Participant';const small=document.createElement('small');const when=new Date(m.joined_at);small.textContent='Joined '+(Number.isNaN(when.getTime())?'recently':when.toLocaleDateString());body.append(name,small);line.append(icon,body);root.append(line)}}
+function setBusy(on){busy=on;$('join').disabled=on;$('leave').disabled=on;$('refresh').disabled=on;}
+async function refresh(){if(!sb||!valid)return;setBusy(true);try{
+  const stock=await sb.from('stocks').select('ticker,company_name').eq('ticker',ticker).maybeSingle();if(stock.error)throw stock.error;if(!stock.data)throw Error('This stock is not listed on the research board.');
+  $('company').textContent=(stock.data.company_name||ticker)+' · Live shared assignments · No live price feed';
+  const results=await sb.from('research_tasks').select('research_area,research_question,status,assigned_agent,claimed_until,updated_at').eq('ticker',ticker).order('updated_at',{ascending:false}).limit(100);if(results.error)throw results.error;renderTasks(results.data||[]);
+  if(user){const r=await sb.from('stock_research_memberships').select('user_id,display_name,joined_at').eq('ticker',ticker).order('joined_at',{ascending:true}).limit(100);if(r.error)throw r.error;const rows=r.data||[];membership=rows.find(m=>m.user_id===user.id)||null;renderMembers(rows);show('not-member',!membership);show('is-member',!!membership);if(membership){$('member-ticker').textContent=ticker;$('member-alias').textContent=membership.display_name}note(membership?`You're part of the ${ticker} research team.`:`${ticker} research board loaded. Choose Join to participate.`,'info')}
+  else note(`${ticker} assignments loaded. Sign in to join the research team.`,'info');
+}catch(e){note('Could not load this stock team: '+(e.message||'Unknown error')+'. Confirm the SQL setup has been run and retry.','error')}finally{setBusy(false)}}
+async function joinTeam(){if(!sb||!user||busy)return;const alias=$('alias').value.trim();if(alias.length<2||alias.length>40){note('Choose a public research name between 2 and 40 characters.','error');return;}setBusy(true);try{const {error}=await sb.from('stock_research_memberships').insert({user_id:user.id,ticker,display_name:alias});if(error)throw error;await refresh();note(`Joined ${ticker}! Your research-team membership is now recorded. No AI has started automatically.`,'success')}catch(e){note('Join failed: '+(e.message||'Unknown error'),'error')}finally{setBusy(false)}}
+async function leaveTeam(){if(!sb||!user||busy||!membership)return;if(!confirm('Leave the '+ticker+' research team? This does not change separate worker permissions.'))return;setBusy(true);try{const {error}=await sb.from('stock_research_memberships').delete().eq('ticker',ticker).eq('user_id',user.id);if(error)throw error;membership=null;await refresh();note(`Left ${ticker}. Your team membership was removed.`,'success')}catch(e){note('Could not leave team: '+(e.message||'Unknown error'),'error')}finally{setBusy(false)}}
+$('refresh').addEventListener('click',refresh);$('join').addEventListener('click',joinTeam);$('leave').addEventListener('click',leaveTeam);
+(async()=>{if(!valid){$('company').textContent='Invalid stock symbol.';note('Open a ticker from the stock research board.','error');$('tasks').textContent='No ticker selected.';return;}
+$('ticker-heading').textContent=ticker;$('stock-link').href='./index.html#stock/'+encodeURIComponent(ticker);$('back-link').href='./index.html#stock/'+encodeURIComponent(ticker);
+try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');sb=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const result=await sb.auth.getUser();user=result.data?.user||null;show('signed-in',!!user);show('signed-out',!user);if(user)$('account-status').textContent='Signed in to AI Stock Commons';await refresh();}catch(e){note('Account service unavailable: '+(e.message||'Unknown error'),'error')}})();
+</script>
+</body></html>
