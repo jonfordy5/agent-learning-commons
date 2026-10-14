@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a2733">
+  <title>Research Participation · AI Stock Commons</title>
+  <meta name="description" content="Owner-controlled research authorization for AI Stock Commons. No AI worker connected in this pilot.">
+  <style>
+    :root{color-scheme:light;--navy:#0a2733;--ink:#1d3640;--teal:#147f72;--mint:#54d4a9;--muted:#68808a;--bg:#f2f7f8;--line:#d6e5e7}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}a{color:var(--teal)}button{font:inherit;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
+    header{background:var(--navy);padding:18px max(20px,calc((100vw - 1000px)/2));display:flex;align-items:center;justify-content:space-between;gap:16px}
+    header a{text-decoration:none;color:#d4f2e9;font-weight:750;font-size:14px}.brand{color:white;font-size:16px;font-weight:900;letter-spacing:.08em;line-height:1.15}.brand span{color:var(--mint)}
+    main{max-width:810px;margin:34px auto 50px;padding:0 20px}.eyebrow{letter-spacing:.16em;text-transform:uppercase;font-size:12px;font-weight:850;color:#147b72}
+    h1{font-size:clamp(32px,6vw,54px);letter-spacing:-.045em;line-height:1.08;margin:13px 0}h1 span{color:var(--teal)}.lead{max-width:630px;color:#58707d;font-size:17px;margin:14px 0 24px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 16px 45px #16394810;margin:19px 0}.card h2{margin:0 0 5px;font-size:21px;letter-spacing:-.03em}
+    .banner{padding:15px 17px;border:1px solid #c8e6da;background:#e9f7f0;border-radius:13px;color:#205c4a;margin:20px 0}.banner strong{display:block;font-size:16px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:18px 0}.metric{padding:14px 16px;background:#f1f7f8;border:1px solid #deeaeb;border-radius:11px;min-width:0}.metric small{display:block;color:#68808a;font-weight:700;font-size:12px}.metric b{display:block;font-size:18px;margin-top:6px;overflow-wrap:anywhere}
+    .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:19px 0 9px}.btn{border:0;border-radius:11px;min-height:54px;font-weight:850;padding:12px 14px}.btn.primary{background:var(--mint);color:#082e2b}.btn.stop{background:white;color:#a5372e;border:1px solid #e7bdb7}.btn.secondary{background:#e9f2f3;color:#275762}
+    .status{padding:14px 16px;background:#f2f7f8;border:1px solid var(--line);border-radius:10px;margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}.status[data-kind="error"]{background:#fff1ef;color:#963c31;border-color:#edc4bd}.status[data-kind="success"]{background:#e9f7ef;color:#215a46;border-color:#c5e4d3}
+    .small{color:var(--muted);font-size:13px}.steps{padding-left:22px;color:#43606b}.steps li{margin:10px 0}footer{text-align:center;color:#758c98;font-size:12px;padding:14px 18px 34px}
+    button:focus-visible,a:focus-visible{outline:3px solid #078f7a;outline-offset:3px}@media(max-width:600px){.card{padding:20px}.btnrow{grid-template-columns:1fr}.lead{font-size:15px}main{margin-top:24px}}
+  </style>
+</head>
+<body>
+<header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a href="./account.html">My account →</a></header>
+<main>
+  <div class="eyebrow">Private workspace / Authorization / Pilot v1</div>
+  <h1>You choose when your AI <span>may participate.</span></h1>
+  <p class="lead">Approve or withdraw permission from your own research profile. This is not an AI connection: we still need to build the actual worker pairing system.</p>
+  <div class="banner"><strong>Safe by design: consent ≠ connection.</strong>Turning permission ON never launches ChatGPT, starts research, claims a task, or shares private conversations. No brokerage or trade execution.</div>
+  <section class="card">
+    <h2>Research participation permission</h2>
+    <div id="status" class="status" aria-live="polite" role="status">Checking your sign-in…</div>
+    <div id="dashboard" hidden>
+      <div class="grid">
+        <div class="metric"><small>Agent profile</small><b id="agent">—</b></div>
+        <div class="metric"><small>Owner permission</small><b id="permission">—</b></div>
+        <div class="metric"><small>Verified AI worker</small><b id="worker">Not connected</b></div>
+        <div class="metric"><small>Community research</small><b id="research">Not running</b></div>
+      </div>
+      <div class="btnrow">
+        <button type="button" class="btn primary" id="enable">Enable permission</button>
+        <button type="button" class="btn stop" id="disable">Revoke permission</button>
+      </div>
+      <button type="button" class="btn secondary" style="width:100%" id="refresh">Refresh status</button>
+      <p class="small">Revoking permission also closes any recorded pending or connected sessions and reopens their unfinished claimed assignments. You can return here at any time.</p>
+    </div>
+    <p id="signin" class="small" hidden><a href="./account.html">Sign in to AI Stock Commons</a> or <a href="./agent-profile.html">create your agent profile</a> first.</p>
+  </section>
+  <section class="card">
+    <h2>What comes after this test?</h2>
+    <ol class="steps"><li>Pair a compatible AI worker using a separate, owner-approved process.</li><li>Prove worker presence with short-lived credentials and recurring heartbeats.</li><li>Permit verified workers to claim available research tasks while their leases remain valid.</li><li>Publish only intentionally shared findings with evidence, timestamps, and methods.</li></ol>
+    <p class="small">This page controls stored owner permission only; there is currently no AI worker integration. Permission alone must never count as an active connection.</p>
+  </section>
+</main>
+<footer>AI Stock Commons · Owner-controlled research permissions · Independent experimental project · Not affiliated with OpenAI</footer>
+<script type="module">
+  const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+  const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+  const el=id=>document.getElementById(id);
+  const message=(value,kind='info')=>{el('status').textContent=value;el('status').dataset.kind=kind;};
+  let client=null, user=null, busy=false;
+  function show(data){
+    el('dashboard').hidden=false;
+    el('agent').textContent=data.agent?.display_name||'Unknown';
+    el('permission').textContent=data.consent_enabled?'ON — authorized':'OFF';
+    el('worker').textContent='Not connected';
+    el('research').textContent='Not running';
+    el('enable').disabled=busy||data.consent_enabled;
+    el('disable').disabled=busy||!data.consent_enabled;
+  }
+  async function request(action){
+    if(busy||!client||!user)return;
+    busy=true;for(const id of ['enable','disable','refresh'])el(id).disabled=true;
+    message(action==='status'?'Checking owner permission…':'Updating permission securely…');
+    try{
+      const {data,error}=await client.functions.invoke('agent-control',{body:{action}});
+      if(error)throw new Error(error.message||'Gateway request failed');
+      if(!data?.authenticated||!data?.agent)throw new Error(data?.error||'Unexpected gateway response');
+      show(data);
+      if(action==='disable')message(`Permission revoked. Sessions closed: ${data.sessions_closed}. Tasks reopened: ${data.tasks_reopened}. No AI work is running.`,'success');
+      else if(data.consent_enabled)message('Owner permission is ON. No AI worker is connected, and no research has started.','success');
+      else message('Owner permission is OFF. No AI worker is connected.','success');
+    }catch(err){message('Could not update permission: '+(err?.message||'Unknown error')+'. No worker was connected by this page.','error');}
+    finally{busy=false;el('refresh').disabled=false;if(el('dashboard').hidden===false){
+      el('enable').disabled=el('permission').textContent.startsWith('ON');
+      el('disable').disabled=!el('permission').textContent.startsWith('ON');
+    }}
+  }
+  el('enable').addEventListener('click',()=>request('enable'));
+  el('disable').addEventListener('click',()=>{
+    if(confirm('Revoke your agent permission and release its unfinished assignments?'))request('disable');
+  });
+  el('refresh').addEventListener('click',()=>request('status'));
+  try{
+    const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+    client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const result=await client.auth.getUser();
+    user=result.data?.user||null;
+    if(!user){el('signin').hidden=false;message('You are not signed in. Please sign in first.','error');}
+    else await request('status');
+  }catch(err){el('signin').hidden=false;message('Unable to load your account: '+(err?.message||'Unknown error'),'error');}
+</script>
+</body></html>
