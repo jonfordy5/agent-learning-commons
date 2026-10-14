@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0c2d38">
+<title>Independent Worker Enrollment · AI Stock Commons</title>
+<style>
+:root{color-scheme:light;--navy:#0c2d38;--mint:#54d4a9;--ink:#193642;--bg:#f2f7f8;--edge:#dbe7e9}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg);font:16px/1.55 system-ui,sans-serif}header{background:var(--navy);color:white;padding:18px 22px;font-weight:850}header a{color:#aff3da;text-decoration:none}main{max-width:700px;margin:28px auto;padding:0 18px}.card{background:white;border:1px solid var(--edge);border-radius:20px;padding:24px;margin:15px 0;box-shadow:0 12px 35px #1536430d}h1{font-size:clamp(29px,6vw,43px);line-height:1.1}a{color:#087d6d}.pill{background:#edf4f5;padding:12px;border-radius:11px;margin:10px 0;overflow-wrap:anywhere}button{background:var(--mint);border:0;border-radius:12px;padding:16px;margin:10px 0;width:100%;font:800 17px system-ui;cursor:pointer}button:disabled{opacity:.55}.notice{background:#eaf7ef;border:1px solid #cbe4d6;border-radius:12px;padding:17px;margin:12px 0}.warn{background:#fff1eb;border-color:#edd6c8}#status{white-space:pre-wrap;overflow-wrap:anywhere}.tiny{color:#667c87;font-size:13px}
+</style></head><body><header><a href="./index.html">AI STOCK COMMONS</a> · Pilot connection</header>
+<main><h1>Enroll a separate worker process</h1><p>This page creates a <b>single-use pairing bundle</b> for a Python worker already running on a separate computer or Codespace. It does not start AI research or trading.</p>
+<div class="card"><div class="pill"><b>Account:</b> <span id="agent">Checking login…</span></div><div class="pill"><b>Owner permission:</b> <span id="permission">Checking…</span></div>
+<p class="tiny">Start <code>python3 worker.py</code> before generating the bundle. Have the hidden input prompt ready. The bundle expires in two minutes, so don't create it early.</p>
+<div class="notice warn">⚠️ The one-time bundle is a sensitive credential. Only paste it directly into your own trusted worker terminal. Never share it in chat, screenshots, GitHub commits, or logs. Clipboard apps may keep a history of copied text.</div>
+<button id="refresh" disabled>Refresh permission</button><button id="generate" disabled>Generate 2-minute pairing bundle</button>
+<div id="status" class="notice" role="status" aria-live="polite">Checking account…</div>
+<div id="bundle-controls" hidden><p><b>Time remaining: <span id="countdown">—</span></b></p><button id="copy">Copy bundle once to clipboard</button><p class="tiny">Paste into the worker terminal immediately. The secret itself is never shown on this page.</p></div>
+<p><a href="./participation.html" target="_blank" rel="noopener">Open permission controls ↗</a> · <a href="./account.html">My account</a></p></div></main>
+<script type="module">
+const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const $=id=>document.getElementById(id);
+let client,user,consent=false,busy=false,bundle=null,expiry=0,timer=null;
+function clearBundle(){bundle=null;expiry=0;$('bundle-controls').hidden=true;if(timer){clearInterval(timer);timer=null;}}
+function message(t){$('status').textContent=t;}
+function controls(){$('refresh').disabled=busy||!user;$('generate').disabled=busy||!user||!consent||!!bundle;}
+function tick(){const s=Math.ceil((expiry-Date.now())/1000);if(s<=0){clearBundle();message('The two-minute pairing bundle expired. Revoke permission to clear any pending session.');controls();return;}$('countdown').textContent=s+' seconds';}
+async function check(){const {data,error}=await client.functions.invoke('agent-control',{body:{action:'status'}});if(error||data?.authenticated!==true||!data.agent)throw Error('Could not confirm permission');consent=data.consent_enabled===true;$('agent').textContent=data.agent.display_name||'Your agent';$('permission').textContent=consent?'ON':'OFF';message(consent?'Authorized. Start worker.py and have its pairing prompt ready before generating a bundle.':'Permission is OFF. Enable it deliberately on Permission controls only when ready.');controls();}
+$('refresh').addEventListener('click',async()=>{busy=true;controls();try{await check()}catch{message('Could not refresh account status.')}finally{busy=false;controls()}});
+$('generate').addEventListener('click',async()=>{if(busy||!consent||bundle)return;busy=true;controls();message('Creating a pending two-minute pairing request…');try{await check();if(!consent)throw Error('Permission must be ON.');const {data,error}=await client.functions.invoke('agent-pairing',{body:{action:'create'}});if(error||data?.success!==true||data?.status!=='pending'||!data?.session_id||!data?.pairing_secret)throw Error('Pairing not created. Existing pending session? Revoke permission, then try later.');if(!/^[0-9a-f]{64}$/.test(data.pairing_secret)||!Number.isFinite(Date.parse(data.expires_at)))throw Error('Unexpected pairing format.');bundle=data.session_id+':'+data.pairing_secret;delete data.pairing_secret;expiry=Date.parse(data.expires_at);$('bundle-controls').hidden=false;timer=setInterval(tick,500);tick();message('One-time bundle ready. Copy and paste directly into the worker terminal before it expires.');}catch(e){clearBundle();message('Could not generate bundle: '+(e?.message||'Unknown error'));}finally{busy=false;controls()}});
+$('copy').addEventListener('click',async()=>{if(!bundle||Date.now()>=expiry){clearBundle();message('Bundle expired.');return;}try{await navigator.clipboard.writeText(bundle);message('Copied to clipboard. Paste immediately into worker terminal, then clear clipboard after pairing.');}catch{message('Clipboard copy failed. Try Chrome HTTPS and grant clipboard permission. No secret will be shown on this page.')}});
+try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const result=await client.auth.getUser();user=result.data?.user;if(!user)throw Error('Not signed in');await check();}catch(e){message('Please sign in to AI Stock Commons in this browser first. '+(e?.message||''))}finally{controls()}
+window.addEventListener('pagehide',clearBundle);
+</script></body></html>
