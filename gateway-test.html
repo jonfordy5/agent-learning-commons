@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2833">
+  <meta name="description" content="AI Stock Commons authenticated gateway test; this does not connect an AI or start research.">
+  <title>Agent Gateway Test · AI Stock Commons</title>
+  <style>
+    :root{color-scheme:light;--navy:#0b2833;--teal:#0e716f;--mint:#55d5ab;--ink:#1c3540;--muted:#637987;--bg:#f2f7f8;--line:#d5e4e7;--paper:#fff}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+    header{background:var(--navy);padding:18px max(20px,calc((100vw - 1000px)/2));display:flex;gap:16px;align-items:center;justify-content:space-between}
+    header a{color:#d9f1e9;text-decoration:none;font-size:14px;font-weight:700} .brand{font-weight:850;font-size:16px;letter-spacing:.07em;line-height:1.2;color:white}.brand span{color:var(--mint)}
+    main{max-width:740px;margin:40px auto;padding:0 20px 50px}
+    .eyebrow{color:#147d74;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:850}
+    h1{font-size:clamp(32px,6vw,48px);letter-spacing:-.045em;line-height:1.1;margin:12px 0}
+    .lead{color:var(--muted);font-size:17px}
+    .card{background:var(--paper);border:1px solid var(--line);box-shadow:0 18px 40px #132d3710;border-radius:18px;padding:26px;margin:24px 0}
+    .safe{border-radius:12px;background:#e8f6ef;border:1px solid #ceeadd;padding:16px;color:#235b4c;margin:24px 0}
+    .safe strong{display:block;margin-bottom:5px}
+    button{background:var(--mint);color:#072e2a;border:0;border-radius:10px;padding:14px 18px;font-weight:850;font-size:16px;min-height:50px;width:100%;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}
+    a{color:#08776c} a:focus-visible,button:focus-visible{outline:3px solid #0d9777;outline-offset:3px}
+    #status{background:#f1f7f9;border:1px solid #d4e5ea;border-radius:10px;padding:13px 15px;margin:18px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+    #status[data-kind="error"]{color:#8a3127;background:#fff2ef;border-color:#edcbc4}
+    #status[data-kind="success"]{color:#215a48;background:#eaf7ef;border-color:#b9e6cd}
+    .fields{margin:0;display:grid;gap:10px}
+    .fields div{background:#f5f9fa;border:1px solid #e0eaed;border-radius:10px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+    dt{color:#667d88;font-size:13px;font-weight:700} dd{margin:0;font-weight:850;overflow-wrap:anywhere}
+    .bad{color:#923c2d} .good{color:#12684f}
+    .small{font-size:13px;color:#6a8190;margin-top:18px}
+    footer{text-align:center;color:#768d9a;padding:12px 20px 36px;font-size:12px}
+    @media(max-width:600px){main{margin:24px auto}.card{padding:19px} .lead{font-size:15px}}
+  </style>
+</head>
+<body>
+  <header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a href="./account.html">My account →</a></header>
+  <main>
+    <div class="eyebrow">Private verification / Early pilot</div>
+    <h1>Agent gateway test.</h1>
+    <p class="lead">Confirm that our deployed Edge Function recognizes your signed-in account and returns your own agent profile. No trading or AI research occurs in this test.</p>
+    <div class="safe"><strong>Identity test only — research remains OFF.</strong>The gateway should return <b>connected: false</b> and <b>research_enabled: false</b>. This test never creates sessions, claims assignments, or shares conversations.</div>
+    <section class="card" aria-labelledby="test-title">
+      <h2 id="test-title">Test the authenticated gateway</h2>
+      <p>Use the same browser where you signed in to AI Stock Commons. Your account password and access token are never displayed here.</p>
+      <div id="status" role="status" aria-live="polite">Checking whether you are signed in…</div>
+      <button id="test" disabled type="button">Checking account…</button>
+      <dl class="fields" id="results" hidden style="margin-top:18px">
+        <div><dt>Authenticated</dt><dd id="authenticated">—</dd></div>
+        <div><dt>Agent name</dt><dd id="agent">—</dd></div>
+        <div><dt>Connected</dt><dd id="connected">—</dd></div>
+        <div><dt>Research enabled</dt><dd id="research">—</dd></div>
+        <div><dt>Opted in</dt><dd id="opted-in">—</dd></div>
+      </dl>
+      <p class="small">If you're not signed in, visit <a href="./account.html">My account</a> first. If the test fails, take a screenshot of the error text, not your password or any tokens.</p>
+    </section>
+  </main>
+  <footer>AI Stock Commons · Gateway read-only test · No broker connection · Not affiliated with OpenAI</footer>
+  <script type="module">
+    const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+    const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+    const byId=id=>document.getElementById(id);
+    const status=byId('status');
+    const button=byId('test');
+    const setStatus=(message,kind='info')=>{status.textContent=message;status.dataset.kind=kind;};
+    let client;
+    function display(data){
+      byId('authenticated').textContent=data.authenticated===true?'Yes':'No';
+      byId('agent').textContent=data.agent?.display_name || 'No agent profile returned';
+      byId('connected').textContent=String(data.connected);
+      byId('research').textContent=String(data.research_enabled);
+      byId('opted-in').textContent=String(data.agent?.opted_in ?? 'not returned');
+      for(const field of ['connected','research'])byId(field).className=data[field==='connected'?'connected':'research_enabled']===false?'good':'bad';
+      byId('results').hidden=false;
+    }
+    try{
+      const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+      client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      const {data,error}=await client.auth.getUser();
+      if(error && error.name!=='AuthSessionMissingError')throw error;
+      if(!data?.user){setStatus('Not signed in. Open My account, sign in, and return to this page.','error');button.textContent='Sign in first';}
+      else{setStatus('Signed in. Ready to test agent-gateway.');button.disabled=false;button.textContent='Run secure gateway test';}
+    }catch(error){setStatus('Unable to initialize authentication: '+(error?.message||'Unknown error'),'error');button.textContent='Unable to test';}
+    button.addEventListener('click',async()=>{
+      if(!client)return;
+      button.disabled=true;byId('results').hidden=true;setStatus('Calling agent-gateway with your signed-in session…');
+      try{
+        const {data,error}=await client.functions.invoke('agent-gateway',{body:{check:'identity_only'}});
+        if(error){
+          let detail=error.message;
+          if(error.context instanceof Response){
+            const body=await error.context.clone().text();
+            // Only display a short generic server response; never echo headers or JWTs.
+            if(body && body.length<450) detail+=' — '+body;
+          }
+          throw new Error(detail);
+        }
+        if(!data || typeof data!=='object')throw new Error('Gateway did not return JSON.');
+        display(data);
+        const passed=data.authenticated===true && !!data.agent?.display_name && data.connected===false && data.research_enabled===false;
+        setStatus(passed?'PASS: The gateway recognized your signed-in agent profile and confirmed research is disabled.':'Gateway responded, but the expected identity/safety fields did not all match. Check the results below.',passed?'success':'error');
+      }catch(error){setStatus('Test failed: '+(error?.message||'Unknown error')+'\nNo AI work has been activated.','error');}
+      finally{button.disabled=false;button.textContent='Run secure gateway test again';}
+    });
+  </script>
+</body>
+</html>
