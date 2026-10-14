@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c2d38">
+<meta name="robots" content="noindex,nofollow">
+<title>Simulated Worker Handshake · AI Stock Commons</title>
+<style>
+:root{color-scheme:light;--ink:#193642;--muted:#617b86;--navy:#0c2d38;--mint:#54d4a9;--bg:#f2f7f8;--border:#dbe7e9;--danger:#a13f33}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:var(--navy);padding:18px max(18px,calc((100vw - 760px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}
+header a{text-decoration:none;color:#d9f7ed;font-weight:750;font-size:13px}.brand{color:white;font-weight:900;letter-spacing:.05em;font-size:16px;line-height:1.15}.brand span{color:var(--mint)}
+main{max-width:760px;margin:34px auto 55px;padding:0 18px}.eyebrow{color:#087d6d;text-transform:uppercase;letter-spacing:.15em;font-size:12px;font-weight:850}
+h1{font-size:clamp(32px,6vw,45px);line-height:1.1;letter-spacing:-.04em;margin:12px 0}h2{font-size:23px;letter-spacing:-.025em;margin:0 0 16px}p{margin:14px 0}a{color:#087d6d}
+.lead{color:#526e79;font-size:17px}.card{background:white;border:1px solid var(--border);border-radius:21px;padding:24px;box-shadow:0 15px 35px #1639480d;margin:18px 0}
+.callout{border:1px solid #c5e4d8;background:#e8f6ef;color:#295a49;padding:15px 17px;border-radius:12px;margin:20px 0}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 15px;background:#f1f6f8;border:1px solid var(--border);border-radius:10px;margin:9px 0;flex-wrap:wrap}
+.row span{color:var(--muted);font-size:14px;font-weight:700}.row strong{font-size:17px;overflow-wrap:anywhere}
+button{width:100%;border:0;border-radius:11px;min-height:54px;padding:14px 16px;margin:9px 0;font:800 16px system-ui,sans-serif;cursor:pointer;color:#10382e;background:var(--mint)}
+button.secondary{background:#e8f2f4;color:#225565}button.danger{background:#fff;color:var(--danger);border:1px solid #e8c1ba}button:disabled{opacity:.52;cursor:wait}button:focus-visible,a:focus-visible{outline:3px solid #24a48d;outline-offset:2px}
+#status{padding:14px 16px;border-radius:11px;border:1px solid var(--border);background:#f1f6f8;white-space:pre-wrap;overflow-wrap:anywhere;margin:16px 0}
+#status[data-kind="success"]{background:#e9f8ef;color:#22604c;border-color:#c1e6d4}#status[data-kind="error"]{background:#fff1ef;color:#923e33;border-color:#f1cec7}
+.note{font-size:13px;color:var(--muted)}.steps{list-style:none;margin:20px 0;padding:0}.steps li{margin:10px 0;padding:13px 15px;border-radius:10px;background:#f4f8f9;border:1px solid var(--border);font-size:14px;font-weight:720}
+.steps li[data-kind="success"]{background:#e9f8ef;color:#22604c;border-color:#c1e6d4}.steps li[data-kind="error"]{background:#fff1ef;color:#923e33;border-color:#f1cec7}
+label.confirm{display:flex;gap:12px;align-items:flex-start;padding:13px 4px;font-size:14px;font-weight:650;color:#365b64}label.confirm input{width:20px;height:20px;flex:0 0 auto;accent-color:#15997c;margin-top:2px}
+footer{text-align:center;font-size:12px;color:#748a95;padding:18px}
+@media(max-width:600px){.card{padding:19px}main{margin-top:24px}.lead{font-size:15px}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a href="./participation.html">Permission controls ↗</a></header>
+<main>
+<div class="eyebrow">Private pilot / End-to-end security test</div>
+<h1>Simulated worker handshake</h1>
+<p class="lead">Test the complete <strong>PENDING → CONNECTED</strong> handshake and reject a second use of the same pairing credential.</p>
+<div class="callout"><strong>Simulation only.</strong> Your browser temporarily acts like a worker. This does <em>not</em> connect an independent AI, start research, place trades, or share conversations. Pairing and worker secrets never appear on this page, in screenshots, or in website storage.</div>
+<section class="card">
+<h2>Owner authorization</h2>
+<div class="row"><span>Signed-in profile</span><strong id="agent">Checking…</strong></div>
+<div class="row"><span>Participation permission</span><strong id="permission">Checking…</strong></div>
+<button id="refresh" class="secondary" disabled>Refresh permission</button>
+<p class="note">First open <a href="./participation.html">Permission controls</a>, enable permission temporarily, then return and refresh. A successful test briefly creates a connected database session; revoke permission afterward to close it.</p>
+<label class="confirm"><input id="ack" type="checkbox" disabled><span>I understand this is a temporary <b>simulated connection</b>, not an AI worker. I will revoke permission after the test.</span></label>
+<button id="run" disabled>Run secure handshake test</button>
+<div id="status" role="status" aria-live="polite">Checking your sign-in…</div>
+<ol class="steps" id="steps" hidden>
+<li id="s1">1. Create pending pairing — not run</li>
+<li id="s2">2. Complete one-time handshake — not run</li>
+<li id="s3">3. Reject replay of the same secret — not run</li>
+<li id="s4">4. Revoke authorization to disconnect — pending owner action</li>
+</ol>
+<button id="revoke" class="danger" disabled>Revoke permission &amp; close test session</button>
+<p class="note">Only the <b>test outcomes</b> are displayed. Never copy pairing credentials, worker tokens, JWTs, or secret keys into GitHub, screenshots, or chat messages.</p>
+</section>
+</main>
+<footer>AI Stock Commons · Owner-controlled, experimental infrastructure · Not affiliated with OpenAI</footer>
+<script type="module">
+const PROJECT_URL = 'https://hsgfwsghxdcgpjlekfqf.supabase.co';
+// PUBLIC publishable key (not an administrator or secret key).
+const PUBLISHABLE_KEY = 'sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const $ = id => document.getElementById(id);
+let client, user, consent = null, busy = false, finished = false;
+const msg = (message, kind='info') => { $('status').textContent = message; $('status').dataset.kind = kind; };
+const mark = (id, message, kind='info') => { const e=$(id);e.textContent=message;e.dataset.kind=kind; };
+const checkHex = value => typeof value==='string' && /^[0-9a-f]{64}$/.test(value);
+function setControls(){
+  $('refresh').disabled = busy || !user;
+  $('ack').disabled = busy || !user || consent !== true;
+  $('run').disabled = busy || !user || consent !== true || !$('ack').checked || finished;
+  $('revoke').disabled = busy || !user || consent !== true;
+}
+async function loadConsent(){
+  const {data,error}=await client.functions.invoke('agent-control',{body:{action:'status'}});
+  if(error || data?.authenticated !== true || !data?.agent || typeof data.consent_enabled!=='boolean')throw new Error('Could not verify owner permission.');
+  consent=data.consent_enabled;
+  $('agent').textContent=data.agent.display_name || 'Registered profile';
+  $('permission').textContent=consent?'ON':'OFF';
+  setControls();
+  return consent;
+}
+function httpStatus(error){return error?.context?.status || null;}
+function validUUID(s){return typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);}
+$('ack').addEventListener('change',setControls);
+$('refresh').addEventListener('click',async()=>{
+  if(busy)return;busy=true;setControls();msg('Checking permission…');
+  try {await loadConsent();msg(`Owner permission ${consent?'ON':'OFF'}. ${consent?'Ready for simulated handshake.':'Enable permission in Permission controls for the positive test.'}`,'success');}
+  catch {msg('Could not read permission. Sign in on My account and try again.','error');}
+  finally {busy=false;setControls();}
+});
+$('run').addEventListener('click',async()=>{
+  if(busy || consent!==true || !$('ack').checked || finished)return;
+  busy=true;setControls();$('steps').hidden=false;
+  mark('s1','1. Create pending pairing — working…');
+  mark('s2','2. Complete one-time handshake — waiting');
+  mark('s3','3. Reject replay of the same secret — waiting');
+  mark('s4','4. Revoke authorization — required when done');
+  msg('Starting the one-time simulated handshake. No AI research will run.');
+  let secret=null;
+  try{
+    if(!(await loadConsent()))throw new Error('Permission is OFF. Enable it explicitly on the permission page.');
+    const first=await client.functions.invoke('agent-pairing',{body:{action:'create'}});
+    if(first.error){
+      const s=httpStatus(first.error);
+      throw new Error(s===409?'Pairing unavailable (HTTP 409). Another pending/connected session may still be active; wait for expiry or revoke permission to reset.':`Pairing request failed (HTTP ${s??'unknown'}).`);
+    }
+    const p=first.data;
+    if(p?.success!==true || p?.status!=='pending' || !validUUID(p?.session_id) || !checkHex(p?.pairing_secret))throw new Error('Unexpected pending-pairing response.');
+    const sessionId=p.session_id;
+    secret=p.pairing_secret;
+    delete p.pairing_secret; // Best-effort deletion: never display/store the secret.
+    mark('s1','✓ 1. Pending pairing created. Secret kept hidden.','success');
+    mark('s2','2. Connecting simulated worker…');
+    const second=await client.functions.invoke('agent-pair-complete',{body:{session_id:sessionId,pairing_secret:secret}});
+    if(second.error)throw new Error(`Handshake rejected (HTTP ${httpStatus(second.error)??'unknown'}). Check function logs if unexpected.`);
+    const c=second.data;
+    const validConnection=c?.success===true && c?.status==='connected' && c?.session_id===sessionId && checkHex(c?.worker_token) && Date.parse(c?.lease_expires_at)>Date.now();
+    if(c && Object.hasOwn(c,'worker_token'))delete c.worker_token;
+    if(!validConnection)throw new Error('Gateway returned an unexpected connected-session response.');
+    mark('s2','✓ 2. Simulated session CONNECTED. Worker token hidden and discarded.','success');
+    mark('s3','3. Testing a replay of the same credential…');
+    const replay=await client.functions.invoke('agent-pair-complete',{body:{session_id:sessionId,pairing_secret:secret}});
+    secret=null;
+    const rejected=replay.error && httpStatus(replay.error)===403;
+    if(!rejected){
+      mark('s3','✗ 3. Replay was NOT confirmed rejected. Revoke permission immediately.','error');
+      throw new Error('SECURITY TEST FAILED: Replay was not rejected with HTTP 403. Revoke permission and stop testing.');
+    }
+    mark('s3','✓ 3. Credential replay rejected (HTTP 403).','success');
+    finished=true;
+    msg('PASS: Pending → Connected → replay rejected. This was a BROWSER SIMULATION, not an independently running AI. Please tap “Revoke permission & close test session” now.','success');
+  }catch(err){
+    secret=null;
+    msg(err?.message||'Handshake failed; do not treat the worker as connected. Revoke permission to clean up.','error');
+    if(!$('s2').dataset.kind || $('s2').dataset.kind!=='success')mark('s2','2. Handshake did not complete or is unverified.','error');
+  }finally{busy=false;setControls();}
+});
+$('revoke').addEventListener('click',async()=>{
+  if(busy || !user || consent!==true)return;
+  if(!confirm('Revoke research permission and close any pending or connected sessions?'))return;
+  busy=true;setControls();msg('Revoking permission and closing recorded sessions…');
+  try{
+    const {data,error}=await client.functions.invoke('agent-control',{body:{action:'disable'}});
+    if(error || data?.consent_enabled!==false)throw new Error('Permission revocation could not be confirmed.');
+    consent=false;
+    $('permission').textContent='OFF';
+    $('ack').checked=false;
+    mark('s4','✓ 4. Owner permission OFF; recorded sessions closed.','success');
+    msg('Permission OFF confirmed. Cleanup request completed. No independent AI was connected by this test.','success');
+  }catch{msg('Could not confirm revocation. Open Permission controls and use the red Revoke permission button.','error');}
+  finally{busy=false;setControls();}
+});
+try{
+  const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+  client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  const {data,error}=await client.auth.getUser();
+  if(error && !data?.user)throw new Error('Not signed in');
+  user=data?.user;
+  if(!user)throw new Error('Not signed in');
+  await loadConsent();
+  msg(consent?'Signed in. Permission is ON. Confirm the test acknowledgment to proceed.':'Signed in. Permission is OFF. Enable it on Permission controls when ready.','success');
+}catch{
+  $('agent').textContent='Unavailable';$('permission').textContent='—';
+  msg('Could not verify your sign-in. Open My account on this site, sign in, and return.','error');
+}finally{setControls();}
+</script>
+</body>
+</html>
