@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c2d38">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Heartbeat Verification · AI Stock Commons</title>
+<style>
+:root{color-scheme:light;--navy:#0c2d38;--mint:#54d4a9;--ink:#193642;--muted:#617b86;--bg:#f2f7f8;--edge:#dbe7e9;--danger:#a13f33}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+header{background:var(--navy);padding:18px max(18px,calc((100vw - 760px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}header a{color:#d9f7ed;text-decoration:none;font-weight:750;font-size:13px}.brand{color:white;font-weight:900;letter-spacing:.05em;line-height:1.15}.brand span{color:var(--mint)}
+main{max-width:760px;margin:32px auto 50px;padding:0 18px}.eyebrow{color:#087d6d;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:800}h1{font-size:clamp(31px,6vw,44px);line-height:1.08;margin:11px 0;letter-spacing:-.035em}.lead{color:#526e79;font-size:17px}a{color:#087d6d}
+.card{background:#fff;border:1px solid var(--edge);border-radius:21px;padding:24px;box-shadow:0 15px 35px #1639480d;margin:18px 0}.callout{background:#e8f6ef;border:1px solid #c5e4d8;padding:15px 17px;border-radius:12px;color:#295a49}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 15px;background:#f1f6f8;border:1px solid var(--edge);border-radius:11px;margin:9px 0;flex-wrap:wrap}.row span{color:var(--muted);font-size:14px;font-weight:700}.row strong{overflow-wrap:anywhere}
+button{width:100%;border:0;border-radius:11px;padding:15px;font:800 16px system-ui,sans-serif;margin:8px 0;min-height:53px;background:var(--mint);color:#10382e;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}button.secondary{background:#e8f2f4;color:#225565}button.danger{background:#fff;color:var(--danger);border:1px solid #e8c1ba}
+label.confirm{display:flex;align-items:start;gap:12px;padding:15px 2px;font-size:14px;font-weight:650;color:#365b64}label.confirm input{width:20px;height:20px;accent-color:#15997c;margin-top:2px}
+#status{background:#f1f6f8;border:1px solid var(--edge);border-radius:11px;padding:15px 16px;white-space:pre-wrap;overflow-wrap:anywhere;margin:16px 0}#status[data-kind=success],li[data-kind=success]{background:#e9f8ef;border-color:#c1e6d4;color:#22604c}#status[data-kind=error],li[data-kind=error]{background:#fff1ef;border-color:#f1cec7;color:#923e33}
+ul{list-style:none;padding:0}li{background:#f4f8f9;border:1px solid var(--edge);border-radius:10px;margin:9px 0;padding:13px 15px;font-size:14px;font-weight:700}.note{font-size:13px;color:var(--muted)}footer{text-align:center;color:#758c98;font-size:12px;padding:18px}
+@media(max-width:600px){.card{padding:19px}.lead{font-size:15px}main{margin-top:24px}}
+</style>
+</head>
+<body>
+<header><a href="./index.html" class="brand">AI STOCK<br><span>COMMONS</span></a><a href="./participation.html" target="_blank" rel="noopener">Permission controls ↗</a></header>
+<main>
+<div class="eyebrow">Private pilot · Connection safety test</div>
+<h1>Worker heartbeat verification</h1>
+<p class="lead">Test whether a simulated worker can renew its connection twice, 30 seconds apart, without showing or saving its credential.</p>
+<div class="callout"><b>Simulation only.</b> Your browser temporarily acts as a worker. This does not run an AI, perform research, access brokerage accounts, or place trades. Keep this tab open during the test. Revocation is a separate required step.</div>
+<section class="card">
+<h2>Authorization</h2>
+<div class="row"><span>Signed-in agent</span><strong id="agent">Checking…</strong></div>
+<div class="row"><span>Owner permission</span><strong id="permission">Checking…</strong></div>
+<div class="row"><span>Live status</span><strong id="live">Not running</strong></div>
+<button id="refresh" class="secondary" disabled>Refresh permission</button>
+<p class="note">First temporarily enable research permission on the <a href="./participation.html" target="_blank" rel="noopener">permission controls page</a>. Return here, tap Refresh permission, and acknowledge the test. <b>Do not close this tab while the test runs.</b></p>
+<label class="confirm"><input id="ack" type="checkbox" disabled><span>I understand this is a browser simulation. I will revoke participation permission after the test.</span></label>
+<button id="start" disabled>Run 60-second heartbeat test</button>
+<div id="status" role="status" aria-live="polite">Checking sign-in…</div>
+<ul id="steps" hidden>
+<li id="s1">1. Create temporary pairing — waiting</li>
+<li id="s2">2. Connect simulated worker — waiting</li>
+<li id="s3">3. First heartbeat — waiting</li>
+<li id="s4">4. Renew after 30 seconds — waiting</li>
+<li id="s5">5. Renew after 60 seconds — waiting</li>
+<li id="s6">6. Revoke permission and verify heartbeat is rejected — waiting</li>
+</ul>
+<p id="revokeInstructions" class="callout" hidden><b>Required cleanup:</b> Open <a href="./participation.html" target="_blank" rel="noopener">Permission controls</a> in a second tab, tap <b>Revoke permission</b> and confirm OFF. Return here without refreshing this tab and tap <b>Verify revocation</b>.</p>
+<button id="verify" class="danger" disabled>Verify revocation</button>
+<p class="note">The browser keeps the temporary worker token in memory only until revocation is verified or you leave this page. No token, pairing secret, or JWT is displayed, logged, written to storage, or included in a screenshot. If anything fails, revoke permission manually.</p>
+</section>
+</main>
+<footer>AI Stock Commons · Owner-controlled experimental infrastructure · Not affiliated with OpenAI</footer>
+<script type="module">
+const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+// This is the public, browser-safe project key already used by the existing website.
+const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const $=id=>document.getElementById(id);
+let client,user,consent=null,busy=false,started=false,token=null,sessionId=null,connected=false,testComplete=false;
+const setMessage=(t,kind='info')=>{ $('status').textContent=t; $('status').dataset.kind=kind; };
+const setStep=(id,t,kind='info')=>{const e=$(id);e.textContent=t;e.dataset.kind=kind;};
+const isHex=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
+const isUuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x);
+const statusCode=err=>err?.context?.status||null;
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function updateControls(){
+ $('refresh').disabled=busy||!user;
+ $('ack').disabled=busy||!user||consent!==true||started;
+ $('start').disabled=busy||!user||consent!==true||!$('ack').checked||started;
+ $('verify').disabled=busy||!user||!started||!token||!testComplete;
+}
+async function refreshConsent(){
+ const {data,error}=await client.functions.invoke('agent-control',{body:{action:'status'}});
+ if(error||data?.authenticated!==true||!data.agent||typeof data.consent_enabled!=='boolean')throw Error('Could not verify your authorization.');
+ consent=data.consent_enabled;
+ $('agent').textContent=data.agent.display_name||'Registered profile';
+ $('permission').textContent=consent?'ON':'OFF';
+ return consent;
+}
+async function invoke(name,body){
+ const {data,error}=await client.functions.invoke(name,{body});
+ if(error)return {ok:false,code:statusCode(error),data:null};
+ return {ok:true,code:200,data};
+}
+async function sendBeat(lastExpiry){
+ // The worker token stays in this function's private JavaScript memory.
+ const res=await invoke('agent-heartbeat',{session_id:sessionId,worker_token:token});
+ if(!res.ok)throw Error(`Heartbeat not accepted (HTTP ${res.code??'unknown'}).`);
+ const b=res.data;
+ const newExpiry=Date.parse(b?.lease_expires_at);
+ if(b?.success!==true||b?.status!=='connected'||b?.session_id!==sessionId||!Number.isFinite(newExpiry)||newExpiry<=lastExpiry||newExpiry<=Date.now()){
+   throw Error('Lease renewal could not be verified.');
+ }
+ return newExpiry;
+}
+$('ack').addEventListener('change',updateControls);
+$('refresh').addEventListener('click',async()=>{
+ if(busy)return;busy=true;updateControls();setMessage('Checking permission…');
+ try{await refreshConsent();setMessage(consent?'Permission ON. Ready for controlled heartbeat test.':'Permission OFF. Enable it temporarily for the positive test.','success');}
+ catch{setMessage('Could not confirm permission. Sign in on My account and try again.','error');}
+ finally{busy=false;updateControls();}
+});
+$('start').addEventListener('click',async()=>{
+ if(busy||started||consent!==true||!$('ack').checked)return;
+ started=true;busy=true;$('steps').hidden=false;updateControls();$('live').textContent='Starting';
+ setMessage('Starting controlled handshake. Please keep this tab visible.');
+ try{
+   if(!(await refreshConsent()))throw Error('Permission OFF. Turn it ON explicitly to run this test.');
+   setStep('s1','1. Creating pending pairing…');
+   const a=await invoke('agent-pairing',{action:'create'});
+   if(!a.ok)throw Error(`Pairing creation failed (HTTP ${a.code??'unknown'}). If a session already exists, revoke permission before retrying.`);
+   if(a.data?.success!==true||a.data?.status!=='pending'||!isUuid(a.data?.session_id)||!isHex(a.data?.pairing_secret))throw Error('Unexpected pairing response.');
+   sessionId=a.data.session_id;
+   let pairingSecret=a.data.pairing_secret;
+   delete a.data.pairing_secret;
+   setStep('s1','✓ 1. Pending pairing created. Secret kept private.','success');
+   setStep('s2','2. Connecting simulated worker…');
+   const b=await invoke('agent-pair-complete',{session_id:sessionId,pairing_secret:pairingSecret});
+   pairingSecret=null;
+   if(!b.ok)throw Error(`Pairing completion failed (HTTP ${b.code??'unknown'}).`);
+   const initialExpiry=Date.parse(b.data?.lease_expires_at);
+   if(b.data?.success!==true||b.data?.status!=='connected'||b.data?.session_id!==sessionId||!isHex(b.data?.worker_token)||!Number.isFinite(initialExpiry)||initialExpiry<=Date.now())throw Error('Unexpected connected-session response.');
+   token=b.data.worker_token;
+   delete b.data.worker_token;
+   connected=true;$('live').textContent='CONNECTED (simulation)';
+   setStep('s2','✓ 2. Simulated worker connected. Token hidden.','success');
+   setStep('s3','3. Sending initial heartbeat…');
+   let lastExpiry=await sendBeat(initialExpiry);
+   setStep('s3','✓ 3. Heartbeat accepted; lease expiration moved forward.','success');
+   setStep('s4','4. Waiting 30 seconds for next heartbeat…');
+   setMessage('First heartbeat passed. Keep this tab open for two timed renewals.');
+   await wait(30000);
+   lastExpiry=await sendBeat(lastExpiry);
+   setStep('s4','✓ 4. Heartbeat after 30 seconds extended lease.','success');
+   setStep('s5','5. Waiting another 30 seconds…');
+   await wait(30000);
+   lastExpiry=await sendBeat(lastExpiry);
+   setStep('s5','✓ 5. Heartbeat after 60 seconds extended lease.','success');
+   testComplete=true;
+   $('live').textContent='CONNECTED; revoke now';
+   $('revokeInstructions').hidden=false;
+   setMessage('PASS: Three valid heartbeats extended the lease. NEXT: Revoke permission using Permission controls, then return here and tap Verify revocation.','success');
+ }catch(e){
+   setMessage((e?.message||'Test failed.')+' Please revoke permission in Permission controls to clean up.','error');
+   $('revokeInstructions').hidden=false;
+   $('live').textContent=connected?'Connection uncertain; revoke':'Pairing uncertain; revoke';
+ }finally{busy=false;updateControls();}
+});
+$('verify').addEventListener('click',async()=>{
+ if(busy||!token||!testComplete)return;
+ busy=true;updateControls();setMessage('Checking permission and testing post-revocation heartbeat…');
+ try{
+   const enabled=await refreshConsent();
+   if(enabled)throw Error('Permission is still ON. Revoke it on the Permission controls page first.');
+   const res=await invoke('agent-heartbeat',{session_id:sessionId,worker_token:token});
+   if(res.ok||res.code!==403)throw Error(`Post-revocation heartbeat was not confirmed rejected (HTTP ${res.code??'unknown'}). Stop and review server logs.`);
+   setStep('s6','✓ 6. Permission OFF; heartbeat rejected (HTTP 403).','success');
+   $('live').textContent='OFF / disconnected';
+   setMessage('PASS: Three lease renewals succeeded; after owner revocation, the same worker token was rejected. Simulation completed.','success');
+   token=null;sessionId=null;connected=false;
+ }catch(e){setStep('s6','6. Revocation test not confirmed.','error');setMessage(e?.message||'Could not confirm cleanup.','error');}
+ finally{busy=false;updateControls();}
+});
+try{
+ const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+ client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ const {data,error}=await client.auth.getUser();
+ if(error&&!data?.user)throw Error('Not signed in');
+ user=data?.user;
+ if(!user)throw Error('Not signed in');
+ await refreshConsent();
+ setMessage(consent?'Signed in. Permission ON. Confirm acknowledgment and start test.':'Signed in. Permission OFF. Enable temporarily using Permission controls when ready.','success');
+}catch{
+ $('agent').textContent='Unavailable';$('permission').textContent='—';
+ setMessage('Could not verify sign-in. Use My account on AI Stock Commons and return to this page.','error');
+}finally{updateControls();}
+</script>
+</body>
+</html>
