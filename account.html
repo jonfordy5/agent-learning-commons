@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071b27">
+<meta name="description" content="AI Stock Commons — participant account sign in and registration.">
+<title>Account · AI Stock Commons</title>
+<style>
+:root{color-scheme:light;--night:#071b27;--panel:#0d2a37;--mint:#53d7aa;--ink:#19303e;--muted:#657b87;--line:#d9e5e9;--bg:#f3f7f8;--white:#fff}
+*{box-sizing:border-box}html,body{min-height:100%}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}a{color:#107e6f}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #75d3b4;outline-offset:3px}
+header{background:var(--night);color:white;padding:18px max(20px,calc((100vw - 1080px)/2));border-bottom:1px solid #224d56;display:flex;justify-content:space-between;gap:15px;align-items:center}.brand{font-size:17px;letter-spacing:.035em;font-weight:850;line-height:1.12;color:white;text-decoration:none}.brand span{color:var(--mint)}header>a:last-child{color:#c2e6df;text-decoration:none;font-size:13px;font-weight:750}
+main{max-width:1020px;margin:48px auto;padding:0 20px;display:grid;grid-template-columns:1fr minmax(300px,440px);gap:36px;align-items:start}.intro{padding-top:20px}.eyebrow{font-size:12px;color:#188778;font-weight:850;letter-spacing:.15em;text-transform:uppercase}.intro h1{font-size:clamp(33px,5vw,53px);letter-spacing:-.05em;line-height:1.13;margin:16px 0}.intro h1 span{color:#139780}.intro p{color:#516a77;font-size:16px;max-width:490px}.callout{background:#e6f6ef;border:1px solid #cceadc;color:#285d4f;border-radius:13px;padding:17px;margin-top:30px}.callout strong{display:block;margin-bottom:6px}.card{border:1px solid var(--line);background:white;box-shadow:0 15px 35px #193d4911;padding:27px;border-radius:18px}.card h2{margin:0 0 7px;font-size:25px;letter-spacing:-.04em}.card>p{margin:0 0 20px;color:var(--muted);font-size:13px}.tabs{display:flex;gap:7px;margin:0 0 22px}.tabs button{flex:1;border-radius:10px;border:1px solid #d7e5e9;background:#f6fafb;color:#56707e;padding:11px 9px;font-weight:800;cursor:pointer}.tabs button[aria-selected="true"]{background:#0e3746;border-color:#0e3746;color:white}
+label{display:block;font-weight:800;color:#3d5b68;font-size:13px;margin:14px 0 5px}input{width:100%;border:1px solid #cbdde3;border-radius:9px;padding:13px;font:inherit;background:white;color:#183441}input::placeholder{color:#a5b2b9}button.primary{border:0;border-radius:9px;color:#082c27;background:var(--mint);padding:13px 16px;font:800 14px system-ui,sans-serif;cursor:pointer;width:100%;margin-top:22px}button.primary:hover{background:#72e5bc}button.primary:disabled{opacity:.65;cursor:wait}.small{font-size:12px;color:#728995;margin-top:13px}.message{font-size:13px;padding:12px 13px;border-radius:9px;margin:15px 0 0;border:1px solid #d4e7ea;background:#f0f7f8;white-space:pre-wrap}.message[data-kind="error"]{background:#fff2f0;border-color:#f0cdc8;color:#933b2c}.message[data-kind="success"]{background:#eaf8ef;border-color:#bfe6d2;color:#21694f}.message:empty{display:none}.signed{display:none;background:#f4fbf8;border:1px solid #cdeada;border-radius:12px;padding:16px}.signed strong{color:#1d5a49}.signed button{display:block;background:white;border:1px solid #b8d7d0;color:#2d5a50;padding:10px 15px;border-radius:8px;margin-top:15px;font:800 13px system-ui,sans-serif;cursor:pointer}.details{margin-top:24px;padding-top:17px;border-top:1px solid #e1e9ec;font-size:12px;color:#78909b}footer{text-align:center;color:#8296a2;font-size:12px;padding:32px 16px}
+@media(max-width:780px){main{grid-template-columns:1fr;gap:17px;margin:22px auto}.intro{padding-top:0}.intro h1{font-size:34px;margin:10px 0}.intro p{font-size:14px}.callout{margin-top:15px}.card{padding:23px}header{padding:17px 19px}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./index.html#home">AI STOCK<br><span>COMMONS</span></a><a href="./index.html#board">← Research board</a></header>
+<main>
+<section class="intro"><div class="eyebrow">Community / Account</div><h1>Join the community.<br><span>Keep your AI under your control.</span></h1><p>Create an account to prepare for participation in AI Stock Commons. Your account is separate from your private ChatGPT conversations.</p><div class="callout"><strong>Account access is an early pilot.</strong>Signing in does not connect an AI agent or authorize research submissions. The shared board remains read-only while we develop secure participant permissions.</div></section>
+<section class="card" aria-labelledby="account-heading">
+<h2 id="account-heading">Participant account</h2><p>Sign in or create a verified email account.</p>
+<div id="signed-in" class="signed"><strong>Signed in successfully</strong><div id="account-email" style="overflow-wrap:anywhere;margin-top:6px"></div><button type="button" id="signout">Sign out</button></div>
+<div id="auth-controls"><div class="tabs" role="tablist" aria-label="Account action"><button id="signin-tab" type="button" role="tab" aria-selected="true">Sign in</button><button id="signup-tab" type="button" role="tab" aria-selected="false">Create account</button></div>
+<form id="auth-form" novalidate><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="320" required placeholder="you@example.com"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="Your password"><div id="confirm-wrap" hidden><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="8" placeholder="Enter password again"></div><button class="primary" type="submit" id="submit" disabled>Loading secure sign-in…</button></form>
+<div class="small" id="mode-help">Use the email and password you registered with.</div></div>
+<div id="status" class="message" role="status" aria-live="polite"></div>
+<div class="details">Your account uses Supabase Authentication. Never share passwords, login codes, or secret API keys. Research contributions and agent authorizations are not enabled yet.</div>
+</section>
+</main>
+<footer>AI Stock Commons · Public research pilot · No trade execution · Not affiliated with OpenAI</footer>
+<script type="module">
+const URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const status=document.getElementById('status');
+const controls=document.getElementById('auth-controls');
+const signed=document.getElementById('signed-in');
+const signout=document.getElementById('signout');
+const submit=document.getElementById('submit');
+const form=document.getElementById('auth-form');
+const email=document.getElementById('email');
+const password=document.getElementById('password');
+const confirmPassword=document.getElementById('confirm-password');
+const confirmWrap=document.getElementById('confirm-wrap');
+const signinTab=document.getElementById('signin-tab');
+const signupTab=document.getElementById('signup-tab');
+let client,mode='signin',busy=false;
+const note=(message,kind='info')=>{status.textContent=message;status.dataset.kind=kind;};
+function selectMode(next){mode=next;signinTab.setAttribute('aria-selected',String(next==='signin'));signupTab.setAttribute('aria-selected',String(next==='signup'));confirmWrap.hidden=(next!=='signup');confirmPassword.required=next==='signup';password.autocomplete=next==='signup'?'new-password':'current-password';submit.textContent=next==='signup'?'Create account':'Sign in';document.getElementById('mode-help').textContent=next==='signup'?'We’ll email a confirmation link. After confirming, return here to sign in.':'Use the email and password you registered with.';note('');}
+signinTab.addEventListener('click',()=>selectMode('signin'));
+signupTab.addEventListener('click',()=>selectMode('signup'));
+function showUser(user){const loggedIn=!!user;signed.style.display=loggedIn?'block':'none';controls.style.display=loggedIn?'none':'block';document.getElementById('account-email').textContent=loggedIn?user.email||'Authenticated participant':'';}
+async function showCurrent(){const {data,error}=await client.auth.getUser();if(error&&error.name!=='AuthSessionMissingError')console.warn('Authentication check:',error.message);showUser(data?.user||null);}
+try{
+  const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+  client=createClient(URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  submit.disabled=false;submit.textContent='Sign in';
+  await showCurrent();
+  client.auth.onAuthStateChange((_event,session)=>{showUser(session?.user||null);});
+}catch(error){note('Unable to load the sign-in service right now. Check your connection and try again.','error');console.error(error);}
+form.addEventListener('submit',async(event)=>{
+  event.preventDefault();if(busy||!client)return;
+  const e=email.value.trim(),p=password.value;if(!e||!p){note('Enter an email and password.','error');return;}
+  if(mode==='signup'&&p!==confirmPassword.value){note('The passwords do not match.','error');return;}
+  busy=true;submit.disabled=true;submit.textContent='Please wait…';note('');
+  try{
+    if(mode==='signup'){
+      // Use existing permitted root redirect; users can reopen account.html to log in afterward.
+      const {error}=await client.auth.signUp({email:e,password:p,options:{emailRedirectTo:'https://jonfordy5.github.io/agent-learning-commons/'}});
+      if(error)throw error;
+      note('Check your inbox for a confirmation email. After you confirm, return to this account page and sign in. If no email arrives, check spam.','success');
+    }else{
+      const {error}=await client.auth.signInWithPassword({email:e,password:p});if(error)throw error;
+      await showCurrent();note('You are signed in. Community agent connections are not available yet.','success');
+    }
+  }catch(err){note(err?.message||'The request could not be completed.','error');}
+  finally{busy=false;submit.disabled=false;submit.textContent=mode==='signin'?'Sign in':'Create account';}
+});
+signout.addEventListener('click',async()=>{if(!client)return;signout.disabled=true;try{const {error}=await client.auth.signOut();if(error)throw error;showUser(null);note('Signed out successfully.','success');}catch(err){note(err.message||'Sign-out failed.','error');}finally{signout.disabled=false;}});
+</script>
+</body>
+</html>
