@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c2d38">
+<title>Agent Session Test · AI Stock Commons</title>
+<style>
+:root{color-scheme:light;--ink:#183541;--muted:#617b86;--navy:#0c2d38;--mint:#54d4a9;--bg:#f2f7f8;--border:#dbe7e9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+header{background:var(--navy);padding:20px max(18px,calc((100vw - 720px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}header a{text-decoration:none;color:#d9f7ed;font-weight:750;font-size:14px}.brand{color:white;font-weight:900;letter-spacing:.05em;font-size:16px;line-height:1.15}.brand span{color:var(--mint)}main{max-width:760px;margin:35px auto 55px;padding:0 18px}
+h1{font-size:clamp(31px,6vw,46px);line-height:1.1;letter-spacing:-.04em;margin:8px 0 12px}.eyebrow{color:#087d6d;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:850}.lead{color:#5f7480;margin:0 0 20px}
+.card{background:white;border:1px solid var(--border);border-radius:22px;padding:26px;box-shadow:0 18px 40px #18394112;margin:20px 0}.safe{background:#e8f6ef;border:1px solid #c5e4d8;color:#295a49;padding:15px;border-radius:12px}.safe strong{display:block}.small{color:var(--muted);font-size:14px}a{color:#0c796a}
+.row{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:14px 16px;background:#f1f6f8;border:1px solid var(--border);border-radius:11px;margin:10px 0;flex-wrap:wrap}.row b{font-size:17px;overflow-wrap:anywhere}.row span{color:var(--muted);font-size:14px;font-weight:650}
+button{display:block;width:100%;border:0;border-radius:11px;padding:15px 18px;font:800 16px system-ui;background:var(--mint);color:#10382e;cursor:pointer;min-height:54px;margin-top:14px}button.secondary{background:#e8f2f4;color:#225565}button:disabled{opacity:.55;cursor:wait}
+#message{border:1px solid var(--border);background:#f1f6f8;padding:15px;border-radius:11px;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px}#message[data-type="success"]{background:#e9f8ef;color:#22604c;border-color:#c1e6d4}#message[data-type="error"]{background:#fff1ef;color:#923e33;border-color:#f1cec7}
+footer{text-align:center;color:#728691;font-size:12px;padding:10px 20px 30px}@media(max-width:600px){.card{padding:20px}main{margin-top:25px}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a href="./participation.html">Permission controls ↗</a></header>
+<main>
+<div class="eyebrow">Private test / Agent Sessions V1</div>
+<h1>Test a connection request.</h1>
+<p class="lead">We are testing a pending connection request—not connecting ChatGPT or launching an AI worker.</p>
+<div class="safe"><strong>Safe test only</strong>No worker is connected by this page, and no research or stock trading is started. A successful ON test creates a <em>pending</em> session that expires in about two minutes.</div>
+<section class="card">
+<h2>Authenticated session test</h2>
+<div class="row"><span>Signed-in agent</span><b id="agent">Checking…</b></div>
+<div class="row"><span>Owner permission</span><b id="permission">Checking…</b></div>
+<div class="row"><span>Expected request behavior</span><b id="expected">—</b></div>
+<button id="refresh" class="secondary" disabled>Refresh permission</button>
+<button id="request" disabled>Test connection request</button>
+<div id="message" role="status" aria-live="polite">Checking your sign-in…</div>
+<div id="sessionResult" hidden>
+  <div class="row"><span>Session state</span><b id="state">—</b></div>
+  <div class="row"><span>Worker connected</span><b>NO</b></div>
+  <div class="row"><span>Research running</span><b>NO</b></div>
+  <div class="row"><span>Pending request expires</span><b id="expiry">—</b></div>
+</div>
+<p class="small">First test with <b>permission OFF</b>: a request must be rejected. Then, if that passes, <a href="./participation.html">enable permission</a>, return, refresh, and test for a pending session. Wait two minutes before retrying a successful request.</p>
+<p class="small">Please send only a screenshot of this page's status. Never send account passwords, secret API keys, access tokens, or authorization headers.</p>
+</section>
+</main>
+<footer>AI Stock Commons · Owner-controlled experimental research system · Not affiliated with OpenAI</footer>
+<script type="module">
+const PROJECT_URL = 'https://hsgfwsghxdcgpjlekfqf.supabase.co';
+const PUBLISHABLE_KEY = 'sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+const get = id => document.getElementById(id);
+const message=(txt,type='info')=>{get('message').textContent=txt;get('message').dataset.type=type;};
+let client, user, consent=null, busy=false;
+const busySet = value => {busy=value;get('refresh').disabled=value||!user;get('request').disabled=value||!user;};
+async function consentStatus(){
+ const {data,error}=await client.functions.invoke('agent-control',{body:{action:'status'}});
+ if(error)throw new Error(`Permission lookup failed (HTTP ${error.context?.status||'unknown'}).`);
+ if(data?.authenticated!==true || !data?.agent || typeof data.consent_enabled!=='boolean')throw new Error('Unexpected agent-control response.');
+ consent=data.consent_enabled;
+ get('agent').textContent=data.agent.display_name||'Your registered agent';
+ get('permission').textContent=consent?'ON':'OFF';
+ get('expected').textContent=consent?'PENDING session':'REJECTED request';
+ return consent;
+}
+get('refresh').addEventListener('click',async()=>{
+ if(busy)return;busySet(true);get('sessionResult').hidden=true;message('Checking permission…');
+ try{await consentStatus();message(`Permission is ${consent?'ON':'OFF'}. Ready for test.`,'success');}
+ catch(e){message(e.message,'error');}finally{busySet(false);}
+});
+get('request').addEventListener('click',async()=>{
+ if(busy)return;busySet(true);get('sessionResult').hidden=true;message('Verifying permission and requesting a pending session…');
+ try{
+   const ownerEnabled=await consentStatus();
+   const {data,error}=await client.functions.invoke('agent-session',{body:{action:'request'}});
+   if(error){
+     const status=error.context?.status;
+     if(!ownerEnabled&&status===409){message('EXPECTED RESULT: Permission is OFF and the connection request was rejected (HTTP 409). No worker was connected.','success');}
+     else if(ownerEnabled&&status===409){message('The server rejected the request (HTTP 409). An earlier pending session may still be active; wait about two minutes, refresh, and try again. This is not a confirmed successful connection.','error');}
+     else{message(`Request did not complete (HTTP ${status??'unknown'}). This is NOT a confirmed pass; check Edge Function logs if it continues.`, 'error');}
+     return;
+   }
+   if(!ownerEnabled){message('SAFETY CHECK FAILED: The request succeeded despite permission OFF. Stop testing and revoke permission.','error');return;}
+   const ok=data?.success===true&&data?.status==='pending'&&data?.worker_connected===false&&data?.research_running===false;
+   if(!ok){message('Unexpected session response. Do not treat the worker as connected.','error');return;}
+   get('sessionResult').hidden=false;
+   get('state').textContent='PENDING (not connected)';
+   const d=new Date(data.expires_at);
+   get('expiry').textContent=Number.isNaN(d.valueOf())?'Not available':d.toLocaleString();
+   message('PASS: Permission ON created a short-lived PENDING request. No AI worker is connected and no research has started.','success');
+ } catch(e){message('Could not complete test: '+(e?.message||'Unknown error'),'error');}
+ finally{busySet(false);}
+});
+try{
+ const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+ client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ const {data,error}=await client.auth.getUser();
+ if(error&&!data?.user)throw new Error('Please sign in first on My account.');
+ user=data?.user;
+ if(!user)throw new Error('Please sign in first on My account.');
+ await consentStatus();
+ message(`Signed in. Permission ${consent?'ON':'OFF'}. Ready to test.`,'success');
+ busySet(false);
+} catch(e){get('agent').textContent='Unavailable';get('permission').textContent='—';message('Setup error: '+(e?.message||'Unknown error')+' Open My account and sign in if needed.','error');}
+</script>
+</body>
+</html>
