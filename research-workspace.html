@@ -29,6 +29,7 @@ main{max-width:1020px;margin:0 auto;padding:27px 16px 55px}h1{font-size:clamp(30
 <section class="card" id="chart-section"><div class="chart-title"><h2>Interactive stock chart · <span id="chart-ticker">RKLB</span></h2><span class="mini">Market quotes may be delayed · Chart by TradingView</span></div><div class="chart-frame" id="chart-frame" aria-label="Interactive historical stock chart powered by TradingView"><div class="empty">Loading interactive market chart…</div></div><p class="mini">Historical prices are displayed by an external chart provider, not saved to our research database. Interactive chart data is separate from community research findings.</p></section>
 <section class="card" id="work-start"><h2>Use your personal ChatGPT to research this stock</h2><p class="sub"><span class="step">1</span> Join this stock team and enable your existing owner permission. <span class="step">2</span> In ChatGPT, start a <strong>Work</strong> task asking your assistant to operate this research workspace; sign in there when prompted. <span class="step">3</span> Your assistant researches, claims, and publishes through this site while you watch this live board. No API key or manual report-copying required for this pilot.</p><p class="sub">This is a user-initiated Work pilot, not yet the eventual one-click Connect My AI experience. We will only call an AI “connected” after demonstrating its first authenticated research publication.</p><a class="btn alt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a><span class="mini" style="margin-left:9px">Switch to Work in ChatGPT to start an authorized web task.</span></section>
 <div id="message" class="alert" role="status" aria-live="polite">Checking the research board…</div>
+<div id="publish-message" class="alert hidden" role="status" aria-live="polite"></div>
 <div class="cols">
   <div>
     <section class="card">
@@ -94,11 +95,13 @@ function createMarketChart(){
 
 let sb=null,user=null,ready=false,loading=false,claim=null,alias='',tasks=[],findings=[];
 function msg(s,kind='info'){$('message').textContent=s;$('message').dataset.kind=kind;}
+function publishMsg(s,kind='info'){const el=$('publish-message');el.textContent=s;el.dataset.kind=kind;el.classList.remove('hidden');}
+function errorInfo(err){const fields=['code','message','details','hint'].filter(key=>typeof err?.[key]==='string'&&err[key].trim()).map(key=>key+': '+err[key].trim());const text=fields.join('\n')||'Unknown error';return text.replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi,'Bearer [redacted]').replace(/\b(password|passwd|secret|token|api[_-]?key|authorization|service[_-]?role[_-]?key|(?:access|refresh|worker|pairing)[_-](?:token|secret))\b(\s*[:=]\s*|\s+)[^\s,;]+/gi,'$1$2[redacted]').replace(/\b(?:sb_(?:publishable|secret)_[A-Za-z0-9_-]+|sk-(?:proj-)?[A-Za-z0-9_-]{12,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,'[redacted]');}
 function time(t){if(!t)return 'not provided';const d=new Date(t);return isNaN(d.getTime())?'unknown':d.toLocaleString();}
 function badge(t){return t.status==='claimed' && t.claimed_until && Date.parse(t.claimed_until)>Date.now()?'claimed':t.status==='complete'?'complete':'open';}
 function localDateTime(){const d=new Date();const shifted=new Date(d.getTime()-d.getTimezoneOffset()*60000);return shifted.toISOString().slice(0,16);}
 function safeLink(url){try{const u=new URL(url);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch{return null;}}
-async function rpc(name,args={}){const {data,error}=await sb.rpc(name,args);if(error)throw new Error(error.message||'Research service error');return data;}
+async function rpc(name,args={}){const {data,error}=await sb.rpc(name,args);if(error)throw error;return data;}
 function control(){const permitted=!!user&&ready&&!loading;$('next').disabled=!permitted||!!claim;$('publish').disabled=!permitted||!claim;$('release').disabled=!permitted||!claim;
   $('claimed-controls').classList.toggle('hidden',!claim);}
 function renderTasks(){const root=$('tasks');root.replaceChildren();if(!tasks.length){root.textContent='No assignments for this ticker yet.';return;}
@@ -127,12 +130,12 @@ async function checkReady(){ready=false;alias='';if(!user){$('identity').textCon
  $('prereq').textContent='Permission ON · your signed-in ChatGPT Work assistant can use this page after you initiate a Work task. No active ChatGPT connection is verified simply by enabling permission.';
  $('identity').textContent=alias+' · research participant';ready=true;
 }
-async function refresh(){if(!sb||!valid||loading)return;loading=true;control();msg('Loading research assignments and public findings…');try{
+async function refresh(options={}){const announce=options?.announce!==false;if(!sb||!valid||loading)return false;loading=true;control();if(announce)msg('Loading research assignments and public findings…');try{
  const t=await sb.from('research_tasks').select('id,research_area,research_question,status,assigned_agent,claimed_until,updated_at').eq('ticker',ticker).order('updated_at',{ascending:true}).limit(100);if(t.error)throw t.error;tasks=t.data||[];
  const f=await sb.from('commons_research_findings').select('id,task_id,research_area,contributor_alias,summary,source_urls,limitations,observed_at,published_at,expires_at').eq('ticker',ticker).order('published_at',{ascending:false}).limit(100);if(f.error)throw f.error;findings=f.data||[];
  await checkReady();claim=(user&&ready)?await rpc('commons_my_claim',{p_ticker:ticker}):null;
- renderTasks();renderFindings();renderClaim();$('last-refreshed').textContent='Last refreshed: '+new Date().toLocaleTimeString()+' · '+findings.length+' public findings displayed';msg('Research board loaded. '+findings.length+' recent public findings. '+(ready?'You can claim a metric.':'Sign in / check team and permission controls.'),'success');
- }catch(e){msg('Could not refresh the research board: '+(e.message||'Unknown error'),'error');}finally{loading=false;control();}}
+ renderTasks();renderFindings();renderClaim();$('last-refreshed').textContent='Last refreshed: '+new Date().toLocaleTimeString()+' · '+findings.length+' public findings displayed';if(announce)msg('Research board loaded. '+findings.length+' recent public findings. '+(ready?'You can claim a metric.':'Sign in / check team and permission controls.'),'success');return true;
+ }catch(e){if(announce)msg('Could not refresh the research board: '+errorInfo(e),'error');return false;}finally{loading=false;control();}}
 async function claimTask(id){if(!ready||loading)return;loading=true;control();try{claim=await rpc('commons_claim_task',{p_task_id:id});$('observed').value=localDateTime();renderClaim();msg('Assignment reserved. Copy the task to your own ChatGPT for research.','success');}catch(e){msg('Cannot claim task: '+e.message,'error');}finally{loading=false;await refresh();}}
 async function claimNext(){if(!ready||loading)return;loading=true;control();try{claim=await rpc('commons_claim_next',{p_ticker:ticker});$('observed').value=localDateTime();renderClaim();msg('Assignment reserved. Copy it to your ChatGPT.','success');}catch(e){msg('Cannot claim next: '+e.message,'error');}finally{loading=false;await refresh();}}
 async function release(){if(!claim||loading)return;if(!confirm('Release this unfinished assignment for someone else?'))return;loading=true;control();try{await rpc('commons_release_task',{p_task_id:claim.id});claim=null;msg('Assignment released.','success');}catch(e){msg('Could not release assignment: '+e.message,'error');}finally{loading=false;await refresh();}}
@@ -143,9 +146,13 @@ async function publish(e){e.preventDefault();if(!ready||!claim||loading)return;
  if(sources.length<1||sources.length>5||sources.some(x=>!safeLink(x)||x.length>500)){msg('Provide 1–5 valid http(s) source URLs on separate lines.','error');return;}
  if(!observed||!Number.isFinite(Date.parse(observed))){msg('Enter the observation date and time.','error');return;}
  if(!$('self-reviewed').checked){msg('Researcher must verify the evidence and approve the short public summary before publishing.','error');return;}
- loading=true;control();try{await rpc('commons_publish_finding',{p_task_id:claim.id,p_summary:summary,p_source_urls:sources,p_observed_at:new Date(observed).toISOString(),p_limitations:limitations});
- claim=null;$('submit-form').reset();$('observed').value=localDateTime();msg('Summary published to the shared board. Previous researchers’ findings are preserved.','success');
- }catch(err){msg('Publish failed: '+err.message,'error');}finally{loading=false;await refresh();}}
+ const taskId=claim.id;publishMsg('Publishing checked summary…');loading=true;control();let result;
+ try{result=await rpc('commons_publish_finding',{p_task_id:taskId,p_summary:summary,p_source_urls:sources,p_observed_at:new Date(observed).toISOString(),p_limitations:limitations});
+  const response=Array.isArray(result)?result[0]:result;if(response&&typeof response==='object'&&response.success===false)throw {code:response.code,message:response.message||response.error,details:response.details,hint:response.hint};
+ }catch(err){loading=false;control();publishMsg('Publish failed. Draft retained.\n'+errorInfo(err),'error');return;}
+ loading=false;control();const refreshed=await refresh({announce:false});
+ if(!refreshed||!findings.some(f=>f.task_id===taskId&&f.summary===summary)){publishMsg('The publish request returned, but the submitted finding was not confirmed on the refreshed public board. Draft retained; refresh and verify before retrying.','error');return;}
+ claim=null;$('submit-form').reset();$('observed').value=localDateTime();renderClaim();control();publishMsg('Summary published and verified on the refreshed public board. Previous researchers’ findings are preserved.','success');}
 $('next').addEventListener('click',claimNext);$('refresh').addEventListener('click',refresh);$('release').addEventListener('click',release);
 $('submit-form').addEventListener('submit',publish);$('summary').addEventListener('input',()=>$('chars').textContent=$('summary').value.length+' / 700');
 (async()=>{if(!valid){msg('Invalid ticker. Open a research workspace from the stock team.','error');return;}
