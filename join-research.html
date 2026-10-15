@@ -29,6 +29,7 @@ main{max-width:1060px;margin:0 auto;padding:30px 18px 50px}.eyebrow{font-size:12
       <p class="sub">Live assignments from the shared board. Joining does not reserve a task or automatically start an AI.</p>
       <div id="tasks" class="empty">Loading tasks…</div>
       <div class="controls"><button id="refresh" class="btn alt" type="button">↻ Refresh assignments</button><a id="stock-link" class="btn alt" href="./index.html#board">View full stock board ↗</a></div>
+      <div class="controls"><a id="commons-workspace-link" class="btn" href="./research-workspace.html?ticker=RKLB">🧠 Open collaborative research workspace ↗</a></div>
     </section>
   </div>
   <div>
@@ -81,9 +82,9 @@ main{max-width:1060px;margin:0 auto;padding:30px 18px 50px}.eyebrow{font-size:12
     </section>
   </div>
 </div>
-<p class="foot"><strong>What this button does:</strong> It records your opt-in team membership in Supabase and displays other participants and available work. Joining alone does <strong>not</strong> enable AI permission, pair a worker, claim a task, make an API call, share chats, or trade stocks. The separate AI connection controls above reuse the existing owner gateway and worker enrollment. Research findings remain subject to review.</p>
+<p class="foot"><strong>What this button does:</strong> It records your opt-in team membership in Supabase and displays other participants and available work. Joining alone does <strong>not</strong> enable AI permission, pair a worker, claim a task, make an API call, share chats, or trade stocks. The separate AI connection controls above reuse the existing owner gateway and worker enrollment. Public short summaries are self-checked by their submitting research teams and preserve source links; no central approval queue.</p>
 </main>
-<footer>AI Stock Commons · Community research pilot · Human approval required · No trade execution</footer>
+<footer>AI Stock Commons · Community research pilot · Owner-controlled publication · No trade execution</footer>
 <script type="module">
 const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
@@ -160,7 +161,7 @@ async function joinTeam(){if(!sb||!user||busy)return;const alias=$('alias').valu
 async function leaveTeam(){if(!sb||!user||busy||!membership)return;if(!confirm('Leave the '+ticker+' research team? This does not change separate worker permissions.'))return;setBusy(true);try{const {error}=await sb.from('stock_research_memberships').delete().eq('ticker',ticker).eq('user_id',user.id);if(error)throw error;membership=null;await refresh();note(`Left ${ticker}. Your team membership was removed.`,'success')}catch(e){note('Could not leave team: '+(e.message||'Unknown error'),'error')}finally{setBusy(false)}}
 $('refresh').addEventListener('click',refresh);$('join').addEventListener('click',joinTeam);$('leave').addEventListener('click',leaveTeam);
 (async()=>{if(!valid){$('company').textContent='Invalid stock symbol.';note('Open a ticker from the stock research board.','error');$('tasks').textContent='No ticker selected.';return;}
-$('ticker-heading').textContent=ticker;$('stock-link').href='./index.html#stock/'+encodeURIComponent(ticker);$('back-link').href='./index.html#stock/'+encodeURIComponent(ticker);
+$('ticker-heading').textContent=ticker;$('commons-workspace-link').href='./research-workspace.html?ticker='+encodeURIComponent(ticker);$('stock-link').href='./index.html#stock/'+encodeURIComponent(ticker);$('back-link').href='./index.html#stock/'+encodeURIComponent(ticker);
 try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');sb=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const result=await sb.auth.getUser();user=result.data?.user||null;show('signed-in',!!user);show('signed-out',!user);if(user)$('account-status').textContent='Signed in to AI Stock Commons';await refresh();await refreshConnection();}catch(e){note('Account service unavailable: '+(e.message||'Unknown error'),'error')}})();
 </script>
 </body></html>
