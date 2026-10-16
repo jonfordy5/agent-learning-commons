@@ -98,7 +98,7 @@ function msg(s,kind='info'){$('message').textContent=s;$('message').dataset.kind
 function publishMsg(s,kind='info'){const el=$('publish-message');el.textContent=s;el.dataset.kind=kind;el.classList.remove('hidden');}
 function errorInfo(err){const fields=['code','message','details','hint'].filter(key=>typeof err?.[key]==='string'&&err[key].trim()).map(key=>key+': '+err[key].trim());const text=fields.join('\n')||'Unknown error';return text.replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi,'Bearer [redacted]').replace(/\b(password|passwd|secret|token|api[_-]?key|authorization|service[_-]?role[_-]?key|(?:access|refresh|worker|pairing)[_-](?:token|secret))\b(\s*[:=]\s*|\s+)[^\s,;]+/gi,'$1$2[redacted]').replace(/\b(?:sb_(?:publishable|secret)_[A-Za-z0-9_-]+|sk-(?:proj-)?[A-Za-z0-9_-]{12,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,'[redacted]');}
 function time(t){if(!t)return 'not provided';const d=new Date(t);return isNaN(d.getTime())?'unknown':d.toLocaleString();}
-function badge(t){return t.status==='claimed' && t.claimed_until && Date.parse(t.claimed_until)>Date.now()?'claimed':t.status==='complete'?'complete':'open';}
+function badge(t){return t.status==='claimed' && t.claimed_until && Date.parse(t.claimed_until)>Date.now()?'claimed':t.status==='completed'?'complete':'open';}
 function localDateTime(){const d=new Date();const shifted=new Date(d.getTime()-d.getTimezoneOffset()*60000);return shifted.toISOString().slice(0,16);}
 function safeLink(url){try{const u=new URL(url);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch{return null;}}
 async function rpc(name,args={}){const {data,error}=await sb.rpc(name,args);if(error)throw error;return data;}
