@@ -103,6 +103,7 @@ function localDateTime(){const d=new Date();const shifted=new Date(d.getTime()-d
 function safeLink(url){try{const u=new URL(url);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch{return null;}}
 async function rpc(name,args={}){const {data,error}=await sb.rpc(name,args);if(error)throw error;return data;}
 function control(){const permitted=!!user&&ready&&!loading;$('next').disabled=!permitted||!!claim;$('publish').disabled=!permitted||!claim;$('release').disabled=!permitted||!claim;
+ $('tasks').querySelectorAll('button').forEach(btn=>{btn.disabled=!permitted||!!claim;});
   $('claimed-controls').classList.toggle('hidden',!claim);}
 function renderTasks(){const root=$('tasks');root.replaceChildren();if(!tasks.length){root.textContent='No assignments for this ticker yet.';return;}
  for(const t of tasks){const block=document.createElement('div');block.className='task';const row=document.createElement('div');row.className='line';const title=document.createElement('strong');title.textContent=t.research_area||'Metric';const tag=document.createElement('span');const st=badge(t);tag.className='pill '+st;tag.textContent=st==='claimed'?'In progress':st==='complete'?'Previously researched · can verify':'Available';row.append(title,tag);block.append(row);
