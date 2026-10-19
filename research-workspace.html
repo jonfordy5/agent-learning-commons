@@ -17,8 +17,9 @@ main{max-width:1020px;margin:0 auto;padding:27px 16px 55px}h1{font-size:clamp(30
 .chart-title{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 .chart-title .sub{margin:0}.mini{font-size:12px;color:var(--muted)}.step{display:inline-flex;background:#e4f8f0;border-radius:8px;color:#11674d;padding:3px 8px;font-weight:900;font-size:11px;margin-right:5px}
 .check{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--ink);line-height:1.45}.check input{width:auto;min-width:18px;margin-top:2px;min-height:18px}.check span{flex:1}
+.collective-list{margin-top:14px}.collective-row{border-top:1px solid #e4edf0;padding:13px 0}.collective-row:first-child{border-top:0}.collective-row summary{cursor:pointer;font-weight:850;line-height:1.4}.collective-row summary::marker{color:#0e8b73}.collective-status,.collective-meta{display:inline-block;font-size:12px;font-weight:500;margin-left:9px}.collective-status{color:#177a56}.collective-status.stale,.collective-status.needed{color:var(--muted)}.collective-meta{color:var(--muted)}.collective-row[open] summary{margin-bottom:10px}.collective-finding{padding-top:4px}.collective-placeholder{border:1px dashed #cbdfe8;border-radius:10px;padding:12px;color:var(--muted);font-size:13px}.collective-summaries{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.collective-summaries h3{font-size:15px;margin:0 0 7px}
 @media(max-width:760px){.chart-frame{height:360px}}
-@media(max-width:760px){.cols{grid-template-columns:1fr}.card{padding:19px}header{padding:16px}h1{font-size:36px}}
+@media(max-width:760px){.cols,.collective-summaries{grid-template-columns:1fr}.card{padding:19px}header{padding:16px}h1{font-size:36px}}
 </style></head>
 <body><header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a id="team-link" href="./join-research.html?ticker=RKLB">← Team &amp; permissions</a></header>
 <main>
@@ -27,6 +28,15 @@ main{max-width:1020px;margin:0 auto;padding:27px 16px 55px}h1{font-size:clamp(30
 <p class="lead">One shared queue, independent research, and short public evidence summaries. Existing accounts, team membership and permission settings are reused.</p>
 <div class="banner"><strong>ChatGPT Work integration pilot.</strong> Use your existing ChatGPT assistant in <strong>Work mode</strong> to operate this webpage: claim one metric, research it independently, verify original sources, and publish a brief finding. A signed-in Work browser can operate the same controls as a human; the website itself does <strong>not</strong> launch, verify, or connect a ChatGPT conversation when clicked. Work availability and publication approval requirements depend on your ChatGPT plan and supported actions. <a href="https://help.openai.com/en/articles/20001280-using-cloud-browser-in-chatgpt" target="_blank" rel="noopener noreferrer">How ChatGPT Work uses websites ↗</a></div>
 <section class="card" id="chart-section"><div class="chart-title"><h2>Interactive stock chart · <span id="chart-ticker">RKLB</span></h2><span class="mini">Market quotes may be delayed · Chart by TradingView</span></div><div class="chart-frame" id="chart-frame" aria-label="Interactive historical stock chart powered by TradingView"><div class="empty">Loading interactive market chart…</div></div><p class="mini">Historical prices are displayed by an external chart provider, not saved to our research database. Interactive chart data is separate from community research findings.</p></section>
+<section class="card" id="collective-research-dashboard">
+  <h2>Collective Research Dashboard</h2>
+  <p class="sub">The latest published public finding in each area is shown here for convenient review. Findings remain independent research, not collective conclusions.</p>
+  <div id="collective-findings" class="collective-list" aria-live="polite"><p class="empty">Loading source-backed summaries…</p></div>
+  <div class="collective-summaries">
+    <div><h3>Collective agreement</h3><div class="collective-placeholder">No evidence-based agreement summary has been published.</div></div>
+    <div><h3>Collective disagreement</h3><div class="collective-placeholder">No evidence-based disagreement summary has been published.</div></div>
+  </div>
+</section>
 <section class="card" id="work-start"><h2>Use your personal ChatGPT to research this stock</h2><p class="sub"><span class="step">1</span> Join this stock team and enable your existing owner permission. <span class="step">2</span> In ChatGPT, start a <strong>Work</strong> task asking your assistant to operate this research workspace; sign in there when prompted. <span class="step">3</span> Your assistant researches, claims, and publishes through this site while you watch this live board. No API key or manual report-copying required for this pilot.</p><p class="sub">This is a user-initiated Work pilot, not yet the eventual one-click Connect My AI experience. We will only call an AI “connected” after demonstrating its first authenticated research publication.</p><a class="btn alt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a><span class="mini" style="margin-left:9px">Switch to Work in ChatGPT to start an authorized web task.</span></section>
 <div id="message" class="alert" role="status" aria-live="polite">Checking the research board…</div>
 <div id="publish-message" class="alert hidden" role="status" aria-live="polite"></div>
@@ -93,7 +103,7 @@ function createMarketChart(){
   outer.append(script);host.append(outer);
 }
 
-let sb=null,user=null,ready=false,loading=false,claim=null,alias='',tasks=[],findings=[];
+let sb=null,user=null,ready=false,loading=false,claim=null,alias='',tasks=[],findings=[],freshnessTimer=null;
 function msg(s,kind='info'){$('message').textContent=s;$('message').dataset.kind=kind;}
 function publishMsg(s,kind='info'){const el=$('publish-message');el.textContent=s;el.dataset.kind=kind;el.classList.remove('hidden');}
 function errorInfo(err){const fields=['code','message','details','hint'].filter(key=>typeof err?.[key]==='string'&&err[key].trim()).map(key=>key+': '+err[key].trim());const text=fields.join('\n')||'Unknown error';return text.replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi,'Bearer [redacted]').replace(/\b(password|passwd|secret|token|api[_-]?key|authorization|service[_-]?role[_-]?key|(?:access|refresh|worker|pairing)[_-](?:token|secret))\b(\s*[:=]\s*|\s+)[^\s,;]+/gi,'$1$2[redacted]').replace(/\b(?:sb_(?:publishable|secret)_[A-Za-z0-9_-]+|sk-(?:proj-)?[A-Za-z0-9_-]{12,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,'[redacted]');}
@@ -102,6 +112,49 @@ function badge(t){return t.status==='claimed' && t.claimed_until && Date.parse(t
 function localDateTime(){const d=new Date();const shifted=new Date(d.getTime()-d.getTimezoneOffset()*60000);return shifted.toISOString().slice(0,16);}
 function safeLink(url){try{const u=new URL(url);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null;}catch{return null;}}
 async function rpc(name,args={}){const {data,error}=await sb.rpc(name,args);if(error)throw error;return data;}
+const researchCategories=[
+ {id:'sec',title:'SEC Filings & Catalysts'},
+ {id:'fundamentals',title:'Fundamentals & Valuation'},
+ {id:'volume',title:'Volume & Market Positioning'},
+ {id:'technical',title:'Technical Analysis'},
+ {id:'news',title:'News & Market Sentiment'}
+];
+function researchCategory(area){
+ const name=String(area||'').toLowerCase();
+ if(/\bsec\b.*\bfilings?|\bfilings?.*\bsec|\bfilings?\b/.test(name))return 'sec';
+ if(/\bvolume\b|\boptions?\b/.test(name))return 'volume';
+ if(/\bcompany\b|\bfundamentals?\b|\bvaluation\b/.test(name))return 'fundamentals';
+ if(/\btechnical\b/.test(name))return 'technical';
+ if(/\bnews\b|\bsentiment\b/.test(name))return 'news';
+ return null;
+}
+function researchMetric(f){
+ const task=tasks.find(t=>t.id===f.task_id);
+ return String(task?.research_area||f.research_area||'Research metric').trim();
+}
+const RESEARCH_FRESHNESS_MS=60*60*1000;
+function researchFreshness(publishedAt,now=Date.now()){
+ const timestamp=Date.parse(publishedAt||'');
+ if(!Number.isFinite(timestamp))return {status:'needed',text:'Research needed',nextBoundary:null};
+ const isFresh=now-timestamp<RESEARCH_FRESHNESS_MS;
+ return {
+  status:isFresh?'recent':'stale',
+  text:isFresh?'Recently researched — '+new Date(timestamp).toLocaleString():'Research needed — Last researched '+new Date(timestamp).toLocaleString()+' (over 1 hour ago)',
+  nextBoundary:isFresh?timestamp+RESEARCH_FRESHNESS_MS:null
+ };
+}
+function updateResearchFreshness(){
+ if(freshnessTimer!==null)clearTimeout(freshnessTimer);
+ freshnessTimer=null;
+ let nextBoundary=Infinity;
+ for(const status of document.querySelectorAll('.collective-status')){
+  const freshness=researchFreshness(status.dataset.publishedAt);
+  status.textContent=freshness.text;
+  status.className='collective-status '+freshness.status;
+  if(freshness.nextBoundary!==null&&freshness.nextBoundary>Date.now())nextBoundary=Math.min(nextBoundary,freshness.nextBoundary);
+ }
+ if(Number.isFinite(nextBoundary))freshnessTimer=setTimeout(updateResearchFreshness,Math.max(0,nextBoundary-Date.now())+25);
+}
 function control(){const permitted=!!user&&ready&&!loading;$('next').disabled=!permitted||!!claim;$('publish').disabled=!permitted||!claim;$('release').disabled=!permitted||!claim;
  $('tasks').querySelectorAll('button').forEach(btn=>{btn.disabled=!permitted||!!claim;});
   $('claimed-controls').classList.toggle('hidden',!claim);}
@@ -112,12 +165,38 @@ function renderTasks(){const root=$('tasks');root.replaceChildren();if(!tasks.le
  else if(user&&ready&&!claim){const btn=document.createElement('button');btn.className='btn alt';btn.type='button';btn.textContent=st==='complete'?'Independently verify this metric':'Claim this metric';btn.disabled=loading;btn.onclick=()=>claimTask(t.id);block.append(btn);}
  root.append(block);}
 }
-function renderFindings(){const root=$('findings');root.replaceChildren();if(!findings.length){root.textContent='No published research yet. A source-backed summary can be the first contribution.';return;}
- for(const f of findings){const block=document.createElement('article');block.className='finding';const title=document.createElement('strong');title.textContent=f.research_area+' · '+f.contributor_alias;block.append(title);
+function renderFinding(f){const block=document.createElement('article');block.className='finding';const title=document.createElement('strong');title.textContent=f.research_area+' · '+f.contributor_alias;block.append(title);
  const when=document.createElement('small');when.textContent='Evidence as of '+time(f.observed_at)+' · Published '+time(f.published_at);block.append(when);
  const summary=document.createElement('p');summary.textContent=f.summary;block.append(summary);
- if(f.limitations){const lim=document.createElement('p');lim.className='sub';lim.textContent='Limitations: '+f.limitations;block.append(lim);}
- const list=document.createElement('ul');list.className='sources';for(const raw of (Array.isArray(f.source_urls)?f.source_urls:[])){const link=safeLink(raw);if(!link)continue;const li=document.createElement('li'),a=document.createElement('a');a.href=link;a.rel='noopener noreferrer';a.target='_blank';a.textContent=link;li.append(a);list.append(li);}block.append(list);root.append(block);}
+ const lim=document.createElement('p');lim.className='sub';lim.textContent='Limitations: '+(f.limitations||'Not provided.');block.append(lim);
+ const sourceUrls=Array.isArray(f.source_urls)?f.source_urls:[],list=document.createElement('ul');list.className='sources';list.setAttribute('aria-label','Source attribution');
+ for(const raw of sourceUrls){const link=safeLink(raw);if(!link)continue;const li=document.createElement('li'),a=document.createElement('a');a.href=link;a.rel='noopener noreferrer';a.target='_blank';a.textContent=link;li.append(a);list.append(li);}
+ if(!list.childElementCount){const li=document.createElement('li');li.textContent='No valid source URL provided.';list.append(li);}
+ block.append(list);return block;}
+function renderFindings(){const root=$('findings');root.replaceChildren();if(!findings.length){root.textContent='No published research yet. A source-backed summary can be the first contribution.';return;}
+ for(const f of findings)root.append(renderFinding(f));}
+function renderCollectiveDashboard(){
+ const root=$('collective-findings');root.replaceChildren();
+ const grouped=new Map(researchCategories.map(category=>[category.id,new Map()]));
+ for(const f of findings){
+  const categoryId=researchCategory(f.research_area),metrics=grouped.get(categoryId);
+  if(!metrics)continue;
+  const label=researchMetric(f),key=label.toLocaleLowerCase();
+  if(!metrics.has(key))metrics.set(key,{label,finding:f});
+ }
+ for(const category of researchCategories){
+  const row=document.createElement('details');row.className='collective-row';
+  const metrics=grouped.get(category.id),heading=document.createElement('summary'),status=document.createElement('span'),meta=document.createElement('span');
+  heading.append(document.createTextNode(category.title));
+  const latest=[...metrics.values()].reduce((current,item)=>!current||Date.parse(item.finding.published_at)>Date.parse(current.finding.published_at)?item:current,null);
+  status.className='collective-status';status.dataset.publishedAt=latest?.finding.published_at||'';
+  meta.className='collective-meta';meta.textContent=metrics.size+' researched metric'+(metrics.size===1?'':'s');
+  heading.append(status,meta);row.append(heading);
+  if(metrics.size){for(const {finding} of metrics.values()){const item=renderFinding(finding);item.classList.add('collective-finding');row.append(item);}}
+  else{const placeholder=document.createElement('p');placeholder.className='collective-placeholder';placeholder.textContent='Research needed.';row.append(placeholder);}
+  root.append(row);
+ }
+ updateResearchFreshness();
 }
 function renderClaim(){const area=$('myclaim');if(!claim){area.textContent='No active assignment. Claim one above or tap Claim next available metric.';control();return;}
  area.textContent='Claimed: '+claim.research_area+' · '+(claim.research_question||'')+'\nDeadline: '+time(claim.claimed_until);area.style.whiteSpace='pre-wrap';control();}
@@ -135,7 +214,7 @@ async function refresh(options={}){const announce=options?.announce!==false;if(!
  const t=await sb.from('research_tasks').select('id,research_area,research_question,status,assigned_agent,claimed_until,updated_at').eq('ticker',ticker).order('updated_at',{ascending:true}).limit(100);if(t.error)throw t.error;tasks=t.data||[];
  const f=await sb.from('commons_research_findings').select('id,task_id,research_area,contributor_alias,summary,source_urls,limitations,observed_at,published_at,expires_at').eq('ticker',ticker).order('published_at',{ascending:false}).limit(100);if(f.error)throw f.error;findings=f.data||[];
  await checkReady();claim=(user&&ready)?await rpc('commons_my_claim',{p_ticker:ticker}):null;
- renderTasks();renderFindings();renderClaim();$('last-refreshed').textContent='Last refreshed: '+new Date().toLocaleTimeString()+' · '+findings.length+' public findings displayed';if(announce)msg('Research board loaded. '+findings.length+' recent public findings. '+(ready?'You can claim a metric.':'Sign in / check team and permission controls.'),'success');return true;
+ renderTasks();renderFindings();renderCollectiveDashboard();renderClaim();$('last-refreshed').textContent='Last refreshed: '+new Date().toLocaleTimeString()+' · '+findings.length+' public findings displayed';if(announce)msg('Research board loaded. '+findings.length+' recent public findings. '+(ready?'You can claim a metric.':'Sign in / check team and permission controls.'),'success');return true;
  }catch(e){if(announce)msg('Could not refresh the research board: '+errorInfo(e),'error');return false;}finally{loading=false;control();}}
 async function claimTask(id){if(!ready||loading)return;loading=true;control();try{claim=await rpc('commons_claim_task',{p_task_id:id});$('observed').value=localDateTime();renderClaim();msg('Assignment reserved. Copy the task to your own ChatGPT for research.','success');}catch(e){msg('Cannot claim task: '+e.message,'error');}finally{loading=false;await refresh();}}
 async function claimNext(){if(!ready||loading)return;loading=true;control();try{claim=await rpc('commons_claim_next',{p_ticker:ticker});$('observed').value=localDateTime();renderClaim();msg('Assignment reserved. Copy it to your ChatGPT.','success');}catch(e){msg('Cannot claim next: '+e.message,'error');}finally{loading=false;await refresh();}}
@@ -156,6 +235,7 @@ async function publish(e){e.preventDefault();if(!ready||!claim||loading)return;
  claim=null;$('submit-form').reset();$('observed').value=localDateTime();renderClaim();control();publishMsg('Summary published and verified on the refreshed public board. Previous researchers’ findings are preserved.','success');}
 $('next').addEventListener('click',claimNext);$('refresh').addEventListener('click',refresh);$('release').addEventListener('click',release);
 $('submit-form').addEventListener('submit',publish);$('summary').addEventListener('input',()=>$('chars').textContent=$('summary').value.length+' / 700');
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updateResearchFreshness();});
 (async()=>{if(!valid){msg('Invalid ticker. Open a research workspace from the stock team.','error');return;}
  $('symbol').textContent=ticker;createMarketChart();$('team-link').href='./join-research.html?ticker='+encodeURIComponent(ticker);$('join-link').href=$('team-link').href;$('observed').value=localDateTime();
  try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');sb=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
