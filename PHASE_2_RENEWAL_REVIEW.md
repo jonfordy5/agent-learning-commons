@@ -49,15 +49,14 @@ lifecycle RPCs. The renewal migration depends on that foundation and must run
 second; both staging test scripts run only after both installers. Agent
 session/pairing functions are not needed for the research/opt-out tests.
 
-The new Orca-staging project is empty, so installation itself needs no legacy
-task bootstrap. For tests, create two dedicated synthetic users through the
-staging Supabase Auth controls, then create their `agent_profiles` rows with
-`opted_in = true` and RKLB memberships using the staging SQL Editor. Seed an
-RKLB stock row. The renewal test also requires a dedicated claimed task with an
-existing finding owned by the primary synthetic user; replace its three UUID
-placeholders in `PHASE_2_RENEWAL_TESTS.sql` before running. The trigger test
-creates and rolls back its own `ORCATSTG` rows and requires only a dedicated
-profile UUID.
+The staging test fixtures use the existing opted-in profiles named
+`ORCA Test Researcher 1` and `ORCA Test Researcher 2`, each with RKLB membership,
+and the existing RKLB stock row. No UUIDs need to be copied into either test.
+The renewal test checks that RKLB has no tasks, series, or requests before it
+creates its rollback-only fixtures. The trigger test requires an unused
+`ORCATSTG` ticker and creates its own rollback-only stock, membership, tasks,
+series, finding, and request. Run both scripts in full as `postgres`; each
+starts a transaction and ends with `ROLLBACK`.
 
 ## First Orca-staging installation sequence
 
@@ -75,12 +74,21 @@ profile UUID.
    are no unexpected tasks/findings or conflicting objects. Review the
    reported function definitions/ACLs and scheduling notices. Stop for any
    mismatch; do not run the production inventory again.
-4. Create only synthetic test users, profiles, memberships, RKLB stock, and the
-   claimed-with-finding fixture described above. Run
-   `ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` as `postgres`; expect it to complete
-   and roll back. Then run `PHASE_2_RENEWAL_TESTS.sql` with the placeholders
-   replaced; expect it to complete and roll back. Any exception is a stop
-   condition; retain the error and staging preflight output for review.
+4. Run the complete
+   `ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` script as `postgres` first. It
+   discovers `ORCA Test Researcher 1`, verifies the required installed trigger
+   and approved metrics, then checks permission withdrawal, claim release,
+   finding preservation, repeated opt-out safety, and renewal from the task
+   completed by opt-out. Expect its final result row to say `PASS: opt-out
+   trigger, permission withdrawal, history, and renewal checks completed; all
+   test writes are rolled back.` Then run the complete `PHASE_2_RENEWAL_TESTS.sql`
+   script as `postgres`. It discovers both named researchers, simulates their
+   authenticated identities with JWT claim settings, checks request
+   idempotency, authorization boundaries, task ownership, publication and
+   completed-task preservation, and renewable assignments. Expect its final
+   result row to say `PASS: renewal, authorization, claim ownership, and
+   idempotency checks completed; all test writes are rolled back.` Any exception
+   is a stop condition; retain the error and staging preflight output for review.
 
 **Ready for the first controlled Orca-staging installation, subject to the
 project and test-fixture prerequisites below.** No SQL was executed. Do not
@@ -166,9 +174,22 @@ Stop client calls and revoke the researcher/bootstrap RPCs first. The supplied r
 
 ## Test plan
 
-`PHASE_2_RENEWAL_TESTS.sql` is a staging-only transaction test. Use an authorized test user with RKLB membership and opt-in, a second authorized user with the same membership/opt-in, an RKLB stock row, and no unmapped RKLB tasks (or complete bootstrap first). The test checks first-time roots for all five categories, Volume/Options separation, UUID conflicts, direct lineage-write denial, and researcher denial of bootstrap; writes roll back.
+`PHASE_2_RENEWAL_TESTS.sql` is a staging-only transaction test run as
+`postgres`; it discovers the two named opted-in profiles and checks their RKLB
+memberships, the stock row, six active metrics, and an empty RKLB tasks/series/
+requests fixture before switching to the `authenticated` role. It checks
+first-time roots for all five categories, Volume/Options separation, UUID
+conflicts and replay safety, direct lineage-write denial, researcher denial of
+bootstrap, claim ownership, completed-task preservation, and renewal. All
+synthetic requests, tasks, and findings roll back.
 
-`ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` runs with database-administrator privileges after both installers. It requires a dedicated synthetic user and profile and a previously unused `ORCATSTG` ticker. It checks the production-reported trigger security boundary, releases a claimed task without findings to `open`, completes a claimed task with a finding without deleting history, verifies a repeated opt-out is a no-op, and renews the completed task into a new linked task. All fixture writes roll back.
+`ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` runs as `postgres` after both
+installers. It discovers `ORCA Test Researcher 1`, requires an unused
+`ORCATSTG` ticker, and checks the trigger's security boundary, opt-out denial
+for claim and renewal RPCs, release of a claimed task without findings,
+completion of a claimed task with a finding while retaining history, repeated
+opt-out safety, and renewal from the completed task. All fixture writes roll
+back.
 
 Required review cases before production approval:
 
