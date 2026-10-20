@@ -1,10 +1,9 @@
--- ORCA Phase 2 staging foundation — review draft only.
+-- ORCA Phase 2 staging foundation — isolated Orca-staging installer.
 --
--- DO NOT EXECUTE. This is a proposed core-schema baseline assembled from the
--- owner-supplied production catalog evidence packet. It has not been run
--- against production or staging. It is a review draft; exact-source/ACL
--- verification for the transcribed functions and any applicable trigger or
--- agent-session test dependencies listed below remain open.
+-- Apply only in the dedicated Orca-staging project after reviewing the
+-- installation sequence in PHASE_2_RENEWAL_REVIEW.md. Never run against
+-- production. It has not been executed. The five lifecycle RPCs and the single
+-- non-internal trigger have been reviewed against the supplied saved evidence.
 --
 -- The target is a dedicated Orca-staging Supabase project. Supabase-managed
 -- auth.users and auth.uid() are prerequisites, not objects created here. Never
@@ -18,6 +17,8 @@
 -- in the packet, PostgreSQL will generate names; no additional checks are
 -- introduced. Effective grants are reproduced for anon/authenticated without
 -- claiming to reproduce unprovided grantor/ACL provenance.
+
+begin;
 
 -- SECTION 1 — Core tables
 -- Create referenced tables before their dependents. auth.users is provided by
@@ -327,14 +328,59 @@ grant select, insert, delete
 
 grant select on table public.stocks to anon, authenticated;
 
--- SECTION 5 — Existing lifecycle RPCs (owner-supplied body transcription)
--- The following four definitions are based on the owner-supplied pg_get_
--- functiondef text, reformatted for readability in the evidence attachment.
--- They have not been independently compared byte-for-byte with production.
--- Validate the exact saved source and complete ACL before installation. Their
--- reported owner is postgres, SECURITY DEFINER is true, search_path is empty,
--- authenticated can execute, and anon cannot execute. No replacement
--- authorization behavior has been designed here.
+-- SECTION 5 — Owner opt-out release trigger
+-- Production evidence confirms this AFTER UPDATE OF opted_in trigger releases
+-- the owner's claimed tasks on the opted-in -> opted-out transition. Keep the
+-- trigger function SECURITY DEFINER with a fixed empty search_path because the
+-- caller has no direct task-write privileges.
+
+create or replace function public.commons_release_on_opt_out()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if old.opted_in is true and new.opted_in is false then
+    update public.research_tasks t
+       set status = case
+             when exists (
+               select 1
+                 from public.commons_research_findings f
+                where f.task_id = t.id
+             ) then 'completed'
+             else 'open'
+           end,
+           claimed_owner_id = null,
+           claimed_session_id = null,
+           claimed_until = null,
+           assigned_agent = null,
+           updated_at = pg_catalog.now()
+     where t.claimed_owner_id = old.owner_id
+       and t.status = 'claimed';
+  end if;
+
+  return new;
+end;
+$function$;
+
+alter function public.commons_release_on_opt_out() owner to postgres;
+
+create trigger commons_owner_opt_out_release
+after update of opted_in on public.agent_profiles
+for each row
+execute function public.commons_release_on_opt_out();
+
+revoke all on function public.commons_release_on_opt_out()
+  from public, anon, authenticated;
+
+-- SECTION 6 — Existing lifecycle RPCs (reviewed source transcription)
+-- The five definitions below retain the supplied postgres ownership,
+-- SECURITY DEFINER, empty search_path, authenticated EXECUTE, and no anon
+-- EXECUTE boundary. Claim and publish now take a shared lock on the opted-in
+-- profile before task locks so opt-out serializes with those operations.
+-- Invalid 'complete' eligibility checks are excluded; only open or expired
+-- claimed work is claimable. Existing authorization checks remain in place.
 
 create or replace function public.commons_claim_next(p_ticker text)
  returns jsonb
@@ -351,6 +397,16 @@ begin
     raise exception 'Sign in required' using errcode = '42501';
   end if;
 
+  perform 1
+  from public.agent_profiles p
+  where p.owner_id = v_user and p.opted_in is true
+  for share;
+
+  if not found then
+    raise exception 'Owner research permission is OFF or agent profile is missing'
+      using errcode = '42501';
+  end if;
+
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(v_user::text, 0)
   );
@@ -360,14 +416,6 @@ begin
     where m.user_id = v_user and m.ticker = upper(btrim(p_ticker))
   ) then
     raise exception 'Join this stock team first' using errcode = '42501';
-  end if;
-
-  if not exists (
-    select 1 from public.agent_profiles p
-    where p.owner_id = v_user and p.opted_in is true
-  ) then
-    raise exception 'Owner research permission is OFF or agent profile is missing'
-      using errcode = '42501';
   end if;
 
   select * into v_task
@@ -393,7 +441,7 @@ begin
   from public.research_tasks t
   where t.ticker = upper(btrim(p_ticker))
     and (
-      t.status in ('open', 'complete')
+      t.status = 'open'
       or (t.status = 'claimed'
           and (t.claimed_until is null or t.claimed_until <= now()))
     )
@@ -437,6 +485,16 @@ begin
     raise exception 'Sign in required' using errcode = '42501';
   end if;
 
+  perform 1
+  from public.agent_profiles p
+  where p.owner_id = v_user and p.opted_in is true
+  for share;
+
+  if not found then
+    raise exception 'Owner research permission is OFF or agent profile is missing'
+      using errcode = '42501';
+  end if;
+
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(v_user::text, 0)
   );
@@ -448,14 +506,6 @@ begin
 
   if v_alias is null then
     raise exception 'Join this stock team first' using errcode = '42501';
-  end if;
-
-  if not exists (
-    select 1 from public.agent_profiles p
-    where p.owner_id = v_user and p.opted_in is true
-  ) then
-    raise exception 'Owner research permission is OFF or agent profile is missing'
-      using errcode = '42501';
   end if;
 
   select * into v_task
@@ -483,7 +533,7 @@ begin
     raise exception 'Another researcher currently holds this assignment';
   end if;
 
-  if v_task.status not in ('open', 'complete', 'claimed') then
+  if v_task.status not in ('open', 'claimed') then
     raise exception 'This assignment is not available';
   end if;
 
@@ -549,6 +599,16 @@ begin
     raise exception 'Sign in required' using errcode = '42501';
   end if;
 
+  perform 1
+    from public.agent_profiles p
+   where p.owner_id = v_user
+     and p.opted_in is true
+   for share;
+
+  if not found then
+    raise exception 'Owner permission is OFF' using errcode = '42501';
+  end if;
+
   select * into v_task
   from public.research_tasks
   where id = p_task_id
@@ -568,13 +628,6 @@ begin
 
   if v_alias is null then
     raise exception 'Team membership required' using errcode = '42501';
-  end if;
-
-  if not exists (
-    select 1 from public.agent_profiles p
-    where p.owner_id = v_user and p.opted_in is true
-  ) then
-    raise exception 'Owner permission is OFF' using errcode = '42501';
   end if;
 
   if p_summary is null
@@ -660,7 +713,7 @@ begin
 
   update public.research_tasks
   set status = case
-        when v_has_findings then 'complete'
+        when v_has_findings then 'completed'
         else 'open'
       end,
       claimed_owner_id = null,
@@ -735,23 +788,22 @@ alter function public.commons_my_claim(text) owner to postgres;
 revoke all on function public.commons_my_claim(text) from public, anon;
 grant execute on function public.commons_my_claim(text) to authenticated;
 
+commit;
+
 -- Remaining dependencies before a faithful staging test:
--- 1. The five user-supplied bodies are readable transcriptions. Verify the four
---    earlier RPC bodies against their saved full pg_get_functiondef output
---    before treating this draft as installable. commons_my_claim was supplied
---    as whitespace-normalized source.
+-- 1. The five lifecycle RPC transcriptions were reviewed against the supplied
+--    saved definitions. Claim status checks that referenced invalid 'complete'
+--    are narrowed to open/expired-claimed work; this does not make completed
+--    assignments claimable.
 -- 2. The evidence reports postgres ownership, SECURITY DEFINER, empty
 --    search_path, authenticated EXECUTE, and no anon EXECUTE for all five
 --    functions. Exact raw ACL/grantor metadata was not supplied; the explicit
 --    grants here preserve the reported effective client boundary.
--- 3. One existing production trigger is confirmed: commons_owner_opt_out_release
---    is AFTER UPDATE OF opted_in on public.agent_profiles and calls
---    commons_release_on_opt_out(), owned by postgres. Its exact function body
---    and security settings/ACL are still required before faithful staging
---    installation/testing. Inspect its compatibility with the lineage guard,
---    especially when it releases unfinished tasks. The focused read-only query
---    is in ORCA_PHASE_2_STAGING_DEPENDENCY_QUERY.sql. Other non-internal
---    triggers, if any, are not reported in the evidence provided so far.
+-- 3. The supplied production evidence confirms the opt-out trigger's firing
+--    event, function owner/security posture, effective anon/authenticated
+--    execution boundary, transition condition, task-release behavior, and
+--    finding preservation. Inventory across all six core tables confirmed this
+--    is the only non-internal trigger in scope.
 -- 4. The five research RPC bodies depend only on auth.uid(), PostgreSQL
 --    built-ins, and the included commons_claim_task call. No additional custom
 --    helper is apparent in the supplied bodies. Do not recreate auth.uid() or
@@ -777,17 +829,16 @@ grant execute on function public.commons_my_claim(text) to authenticated;
 --
 -- Lifecycle cautions from the supplied digest:
 -- * research_tasks permits open, claimed, completed, cancelled only.
--- * The retrieved claim bodies contain the invalid literal 'complete'. Preserve
---   the exact captured definitions for review. Do NOT replace this with
---   'completed' in claim eligibility; completed tasks must remain terminal.
--- * commons_release_task also attempts to set 'complete' when a finding exists,
---   which violates the status constraint. PHASE_2_RELEASE_STATUS_FIX.sql is a
---   separate guarded staging-only correction to that release branch. It must
---   be reviewed and, if approved, used only after installing the exact function
---   in isolated staging. It is not included or executed here.
+-- * The supplied claim bodies contained the invalid literal 'complete' in
+--   claim eligibility. The staging copies exclude that impossible status and
+--   do not replace it with 'completed'; completed tasks remain terminal.
+-- * Both staging release paths use the valid 'completed' status when findings
+--   exist: commons_release_task and commons_release_on_opt_out. The old
+--   production patch PHASE_2_RELEASE_STATUS_FIX.sql is not part of this installer.
 --
--- SECTION 6 — Phase 2 proposal and staging-only test gate
--- PHASE_2_RENEWAL_PROPOSED.sql remains design-only. Reconcile it with this
--- verified baseline and the exact RPC/trigger dependencies before appending
--- its reviewed sections. Do not modify production, copy production rows, or
--- run any SQL until the complete installer and tests have been reviewed.
+-- SECTION 7 — Phase 2 proposal and staging-only test gate
+-- Apply PHASE_2_RENEWAL_PROPOSED.sql after this committed foundation, then run
+-- ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql and PHASE_2_RENEWAL_TESTS.sql in
+-- isolated Orca-staging. Verify all remaining dependencies above before any
+-- installation. Do not modify production, copy production rows, or run SQL
+-- until the complete installer and tests have been reviewed.

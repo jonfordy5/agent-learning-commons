@@ -2,17 +2,91 @@
 
 **Status: review packet only. No migration, test, production data change, or deployment was run.**
 
-## End-of-day staging dependency note
+## ORCA staging foundation status
 
-The owner's final production inspection identified one existing custom trigger:
-`commons_owner_opt_out_release` on `public.agent_profiles`, firing `AFTER UPDATE
-OF opted_in` and calling `commons_release_on_opt_out()`. The trigger function is
-owned by `postgres`; its exact definition has not yet been supplied. Before
-installing or testing ORCA in staging, inspect that exact function definition
-and its security settings/ACL, then verify that its session cleanup and
-unfinished-task release behavior remains compatible with the staging schema
-and the Phase 2 lineage guard. Do not infer its behavior or recreate it from
-its name. No SQL was executed as part of recording this note.
+`ORCA_PHASE_2_STAGING_FOUNDATION.sql` now includes the confirmed
+`commons_owner_opt_out_release` trigger and its `SECURITY DEFINER` function.
+The function uses an empty `search_path`, is owned by `postgres`, denies direct
+execution to `anon` and `authenticated`, acts only on opted-in to opted-out
+transitions, releases only that owner's claimed tasks, clears claim metadata,
+and preserves findings. A finding-bearing task is set to the constraint-valid
+`completed` status. The existing `commons_release_task` transcription is also
+corrected to use `completed` for the same case.
+
+The five lifecycle RPC transcriptions were reviewed against the supplied saved
+definitions. Material status defects were the `complete` literal in claim
+eligibility and the release-with-finding branch, contrary to the verified
+constraint (`completed` is valid). Staging claim paths now allow only `open`
+or expired `claimed` tasks; they do not treat completed work as claimable.
+Release-with-finding writes `completed`. Existing authentication, membership,
+owner-consent, active-claim, lease, ownership, and finding-validation checks
+remain. Claim, publish, and renewal take a shared lock on the opted-in profile
+before task locks (and before the per-user advisory lock where used). This
+serializes those operations with the opt-out profile update: an in-flight
+claim/publish/renewal completes before opt-out, after which the trigger releases
+any claim; if opt-out wins first, the RPC sees consent off and fails.
+
+The trigger inventory across all six core tables has been confirmed complete:
+`commons_owner_opt_out_release` is the only non-internal trigger in scope. No
+additional production trigger query is needed.
+
+The foundation is transaction-wrapped. Apply the foundation first, then
+`PHASE_2_RENEWAL_PROPOSED.sql`, then run
+`ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` and
+`PHASE_2_RENEWAL_TESTS.sql` in isolated Orca-staging. The trigger test requires
+a dedicated synthetic user and profile; it rolls back its fixture writes and
+checks unfinished claims, existing findings, repeated opt-out, permissions,
+and renewal from a task completed by opt-out.
+
+Installer prerequisites are the Supabase `auth.users` table and `auth.uid()`,
+the `postgres`, `anon`, `authenticated`, and `service_role` roles, and a
+privileged staging installer able to create/alter tables, functions, triggers,
+and function owners (use the Supabase SQL Editor as `postgres`). The foundation
+uses built-in UUID/hash functions and does not create Auth users. It creates the
+six application tables in FK dependency
+order, then indexes, RLS, effective client grants, the opt-out trigger, and
+lifecycle RPCs. The renewal migration depends on that foundation and must run
+second; both staging test scripts run only after both installers. Agent
+session/pairing functions are not needed for the research/opt-out tests.
+
+The new Orca-staging project is empty, so installation itself needs no legacy
+task bootstrap. For tests, create two dedicated synthetic users through the
+staging Supabase Auth controls, then create their `agent_profiles` rows with
+`opted_in = true` and RKLB memberships using the staging SQL Editor. Seed an
+RKLB stock row. The renewal test also requires a dedicated claimed task with an
+existing finding owned by the primary synthetic user; replace its three UUID
+placeholders in `PHASE_2_RENEWAL_TESTS.sql` before running. The trigger test
+creates and rolls back its own `ORCATSTG` rows and requires only a dedicated
+profile UUID.
+
+## First Orca-staging installation sequence
+
+1. In the Orca-staging SQL Editor, confirm the project is empty and the Supabase
+   roles/Auth schema prerequisites above exist. Run
+   `ORCA_PHASE_2_STAGING_FOUNDATION.sql` as `postgres`. Expect one committed
+   transaction creating the baseline tables, grants, RPCs, and opt-out trigger.
+   Stop on any error; do not rerun against a partially initialized schema.
+2. Run `PHASE_2_RENEWAL_PROPOSED.sql`. Expect the six approved catalog metrics,
+   series/request tables, lineage columns/guard, and RPC grants to install in a
+   committed transaction. Stop on any error.
+3. Run `PHASE_2_RENEWAL_PREFLIGHT.sql` in staging. Confirm lineage columns and
+   constraints exist, metadata tables have no client grants, task client DML is
+   revoked, the helper/RPC owners and safe `search_path` are correct, and there
+   are no unexpected tasks/findings or conflicting objects. Review the
+   reported function definitions/ACLs and scheduling notices. Stop for any
+   mismatch; do not run the production inventory again.
+4. Create only synthetic test users, profiles, memberships, RKLB stock, and the
+   claimed-with-finding fixture described above. Run
+   `ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` as `postgres`; expect it to complete
+   and roll back. Then run `PHASE_2_RENEWAL_TESTS.sql` with the placeholders
+   replaced; expect it to complete and roll back. Any exception is a stop
+   condition; retain the error and staging preflight output for review.
+
+**Ready for the first controlled Orca-staging installation, subject to the
+project and test-fixture prerequisites below.** No SQL was executed. Do not
+rerun the completed production trigger inventory or broader production audits.
+The post-install preflight is a staging verification step, not a request for
+duplicate production discovery.
 
 ## Scope and observed behavior
 
@@ -33,7 +107,7 @@ The researcher function does not map legacy rows. `commons_bootstrap_legacy_rese
 
 The migration revokes direct client task DML and `TRUNCATE`, including column-level insert/update grants, while retaining reads. A SECURITY DEFINER trigger requires new task rows to match an approved series/current predecessor and makes established lineage immutable; the only legacy lineage assignment path is controlled bootstrap. It also enables RLS and revokes client access to the catalog, series, and request ledger. The create/renew RPC, bootstrap RPC, and trigger function use fixed `search_path` and explicit owner `postgres`; RPC EXECUTE is explicitly limited to authenticated or service_role as appropriate, and trigger-function EXECUTE is revoked from client roles. Verify that owner is appropriate in the live project and that existing claim/publish functions remain compatible with task DML revokes and the trigger.
 
-For a same-metric concurrency race, the series lock ensures only one current assignment row is created; both researchers can receive its ID. The existing claim RPC still must atomically allow only one of them to claim it. This migration does not replace claim behavior. Per the corrected live inspection, `commons_claim_next` and `commons_claim_task` take user advisory locks and task-row locks; `commons_publish_finding` takes a task-row lock but no user advisory lock. Renewal takes its per-user rate-limit advisory lock, then the series row, then the task row; bootstrap takes series then task. Claim/publish do not acquire a series lock, so these reported orders have no lock-order cycle with renewal. `commons_release_task` is included in preflight but its exact lock order and permission checks still need review; it must not lock task then wait for the series. The trigger reads (does not lock) the series during task updates.
+For a same-metric concurrency race, the series lock ensures only one current assignment row is created; both researchers can receive its ID. Claim RPCs atomically allow only one researcher to claim it. Claim-next/claim-task take the opted-in profile share lock, then the per-user advisory lock, then task locks; publish takes the profile share lock then the task lock; create/renew takes the profile share lock, user advisory lock, series lock, then task lock. Bootstrap takes series then task. The opt-out update exclusively locks the profile before its trigger touches tasks, so the consent/task lock order is consistent. `commons_release_task` locks only its owned task and never waits for a profile or series lock. The lineage trigger reads (does not lock) the series during task updates.
 
 The lineage trigger fires on INSERT and UPDATE statements targeting lineage, status, assigned researcher, or lease columns. It allows claim/reclaim only when the task is mapped and is its series' current task; it allows release and publish status transitions for that current task without changing historical lineage. The staging test exercises claim, release, publish, and claim-next with the trigger installed. Confirm the live release function changes only expected claim fields and preserves its auth/ownership checks.
 
@@ -45,7 +119,7 @@ The migration deliberately does not replace `commons_claim_task`, `commons_claim
 - For a task with `research_series_id`, claim only when that series' `current_task_id` equals the task ID; mapped historical tasks must remain non-claimable.
 - Never claim or reset `completed` or `cancelled` assignments. Re-research must go through the series RPC and create a new task ID.
 - Keep the one-active-claim-per-researcher rule under concurrent calls, preserving the existing auth, permission, row-locking, function-owner, and safe `search_path` checks.
-- Use a consistent lock order across create/renew, claim, publish, and bootstrap: researcher-level lock if applicable, then series row, then task row. Do not let a claim/publish function lock a task and then wait on its series while create/renew holds the series and waits on the task.
+- Use a consistent lock order across create/renew, claim, publish, and bootstrap: consent profile row if applicable, researcher-level lock, then series row, then task row. Do not let a claim/publish function lock a task and then wait on its series while create/renew holds the series and waits on the task.
 - Expired claimed work remains the same unfinished task and may be reclaimed; it is not a completed research cycle.
 
 The proposed series RPC checks authentication, ticker membership, and `agent_profiles.opted_in`, based on website-visible checks. Those checks are not certified equivalent to the live claim/publish RPCs. Compare and preserve any additional owner-consent protections before approving the function. The SQL draft assumes UUID task IDs and specific required task columns; verify both using preflight. The `postgres` function owner must be able to bypass the relevant RLS policy and must be reviewed against the live function ownership standard.
@@ -93,6 +167,8 @@ Stop client calls and revoke the researcher/bootstrap RPCs first. The supplied r
 ## Test plan
 
 `PHASE_2_RENEWAL_TESTS.sql` is a staging-only transaction test. Use an authorized test user with RKLB membership and opt-in, a second authorized user with the same membership/opt-in, an RKLB stock row, and no unmapped RKLB tasks (or complete bootstrap first). The test checks first-time roots for all five categories, Volume/Options separation, UUID conflicts, direct lineage-write denial, and researcher denial of bootstrap; writes roll back.
+
+`ORCA_PHASE_2_STAGING_TRIGGER_TESTS.sql` runs with database-administrator privileges after both installers. It requires a dedicated synthetic user and profile and a previously unused `ORCATSTG` ticker. It checks the production-reported trigger security boundary, releases a claimed task without findings to `open`, completes a claimed task with a finding without deleting history, verifies a repeated opt-out is a no-op, and renews the completed task into a new linked task. All fixture writes roll back.
 
 Required review cases before production approval:
 

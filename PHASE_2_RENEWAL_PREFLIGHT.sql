@@ -1,5 +1,6 @@
--- AI Stock Commons Phase 2: read-only Supabase preflight.
--- Run this before reviewing or applying PHASE_2_RENEWAL_PROPOSED.sql.
+-- AI Stock Commons Phase 2: read-only staging post-install verification.
+-- Run in Orca-staging after ORCA_PHASE_2_STAGING_FOUNDATION.sql and
+-- PHASE_2_RENEWAL_PROPOSED.sql, before the staging test scripts.
 -- Inspect output privately; function definitions and role names are database metadata.
 
 -- Relevant table columns, types, nullability, and defaults.

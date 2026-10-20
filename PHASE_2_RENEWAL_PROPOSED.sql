@@ -1,9 +1,9 @@
--- AI Stock Commons Phase 2: proposed migration for review only.
--- DO NOT RUN until the preflight output and live function definitions have been
--- reviewed. In particular, verify task column types/defaults and make sure the
--- existing claim RPCs claim only open tasks or eligible expired claimed tasks.
--- Also verify RLS/table grants prevent direct authenticated writes to lineage
--- columns, and that the SECURITY DEFINER owner has only the intended privileges.
+-- AI Stock Commons Phase 2: isolated Orca-staging migration.
+-- Apply only after ORCA_PHASE_2_STAGING_FOUNDATION.sql in the dedicated
+-- Orca-staging project. The supplied production schema/function evidence and
+-- this migration's assumptions must be reviewed first. Run
+-- PHASE_2_RENEWAL_PREFLIGHT.sql after this migration to verify installed
+-- columns, constraints, RLS, grants, functions, and lineage protections.
 -- This script creates no findings and changes no existing task status or finding.
 -- Existing claim/publish RPC bodies are deliberately not replaced here: preserve
 -- their exact authentication/permission checks when reviewing any claim adjustment.
@@ -320,10 +320,20 @@ begin
   if not exists (
     select 1 from public.stock_research_memberships m
      where m.user_id = v_user_id and m.ticker = v_ticker
-  ) or not exists (
-    select 1 from public.agent_profiles ap
-     where ap.owner_id = v_user_id and ap.opted_in is true
   ) then
+    raise exception 'Research participation is not authorized' using errcode = '42501';
+  end if;
+
+  -- Serialize this request against the AFTER UPDATE opt-out trigger. The row
+  -- lock is acquired before user, series, and task locks; opt-out cannot commit
+  -- between the consent check and assignment creation.
+  perform 1
+    from public.agent_profiles ap
+   where ap.owner_id = v_user_id
+     and ap.opted_in is true
+   for share;
+
+  if not found then
     raise exception 'Research participation is not authorized' using errcode = '42501';
   end if;
 
