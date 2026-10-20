@@ -191,6 +191,16 @@ completion of a claimed task with a finding while retaining history, repeated
 opt-out safety, and renewal from the completed task. All fixture writes roll
 back.
 
+The next staging milestone is documented in
+`ORCA_PHASE_2_AUTHENTICATED_INTEGRATION_REVIEW.md`. Its Node harness uses
+genuine Supabase Auth password sessions for the two existing researcher
+accounts and the existing RPCs; it does not simulate JWT claims or use a
+service-role key. Run its read-only preflight first. The harness creates one
+clearly labeled synthetic finding and two linked tasks, prints a cleanup
+manifest, and leaves cleanup as a separately reviewed, tightly guarded
+staging-only SQL transaction. The harness has been prepared for review only;
+it has not been run.
+
 Required review cases before production approval:
 
 - First-time calls create `open` roots in all five category keys with no historical finding or source task.
