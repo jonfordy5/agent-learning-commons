@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>ORCA Staging Research Workspace</title>
+</head>
+<body>
+  <p>Opening the ORCA staging research workspace…</p>
+  <noscript>
+    <p>JavaScript is required. Open <a href="./research-workspace.html?environment=orca-staging&amp;ticker=RKLB">the staging workspace</a>.</p>
+  </noscript>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const ticker = params.get('ticker') || 'RKLB';
+    const target = new URL('./research-workspace.html', window.location.href);
+    target.searchParams.set('environment', 'orca-staging');
+    target.searchParams.set('ticker', ticker);
+    window.location.replace(target.href);
+  </script>
+</body>
+</html>
