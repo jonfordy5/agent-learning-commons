@@ -75,7 +75,7 @@ main{max-width:1060px;margin:0 auto;padding:30px 18px 50px}.eyebrow{font-size:12
         <button class="btn" id="conn-enable" type="button" disabled>Enable permission</button>
         <button class="btn danger" id="conn-revoke" type="button" disabled>Disconnect / Revoke</button>
       </div>
-      <p class="conn-help"><strong>Important:</strong> Joining RKLB is separate from authorizing an AI. Enabling permission does not launch an assistant. Pairing here works with a compatible external worker (such as our Python worker), not directly with a personal ChatGPT conversation. Direct ChatGPT integration and automatic task claiming are still to be built. Revoking permission closes the owner's worker sessions but does not remove team membership.</p>
+      <p class="conn-help"><strong>Important:</strong> Joining RKLB is separate from authorizing an AI. Enabling permission does not launch or connect an assistant. Permission allows an authenticated researcher to use the existing research controls; a compatible worker connection is not available in this staging site. Revoking permission releases unfinished claimed assignments but does not remove team membership or published findings.</p>
     </section>
     <section class="card">
       <h2>Human + AI teams</h2>
@@ -84,7 +84,7 @@ main{max-width:1060px;margin:0 auto;padding:30px 18px 50px}.eyebrow{font-size:12
     </section>
   </div>
 </div>
-<p class="foot"><strong>What this button does:</strong> It records your opt-in team membership in Supabase and displays other participants and available work. Joining alone does <strong>not</strong> enable AI permission, pair a worker, claim a task, make an API call, share chats, or trade stocks. The separate AI connection controls above reuse the existing owner gateway and worker enrollment. Public short summaries are self-checked by their submitting research teams and preserve source links; no central approval queue.</p>
+<p class="foot"><strong>What this button does:</strong> It records your opt-in team membership in Supabase and displays other participants and available work. Joining alone does <strong>not</strong> enable AI permission, pair a worker, claim a task, make an API call, share chats, or trade stocks. The separate permission controls require an explicit owner action. Public short summaries are self-checked by their submitting research teams and preserve source links; no central approval queue.</p>
 </main>
 <footer>AI Stock Commons · Community research pilot · Owner-controlled publication · No trade execution</footer>
 <script type="module">
@@ -116,14 +116,13 @@ async function refreshConnection(){
   connectionProfile=null;connectionConsent=null;
   $('conn-profile').textContent='Checking…';$('conn-permission').textContent='Checking…';$('conn-worker').textContent='Checking…';
   try{
-    const {data:profile,error:profileError}=await sb.from('agent_profiles').select('id,display_name').eq('owner_id',user.id).maybeSingle();
+    const {data:profile,error:profileError}=await sb.from('agent_profiles').select('id,display_name,opted_in').eq('owner_id',user.id).maybeSingle();
     if(profileError)throw profileError;
     if(!profile){$('conn-profile').textContent='Not created';$('conn-permission').textContent='OFF / not set';$('conn-worker').textContent='Not connected';connectionNote('Create your agent profile first. Your RKLB team membership is unaffected.');return;}
     connectionProfile=profile;
     $('conn-profile').textContent=profile.display_name||'Created';
-    const {data:control,error:controlError}=await sb.functions.invoke('agent-control',{body:{action:'status'}});
-    if(controlError||control?.authenticated!==true||typeof control?.consent_enabled!=='boolean')throw Error('Owner consent could not be verified. Open Full permission controls.');
-    connectionConsent=control.consent_enabled;
+    if(typeof profile.opted_in!=='boolean')throw Error('Owner consent could not be verified. Open Full permission controls.');
+    connectionConsent=profile.opted_in;
     $('conn-permission').textContent=connectionConsent?'ON — owner approved':'OFF — not authorized';
     if(!connectionConsent){$('conn-worker').textContent='Not authorized';connectionNote('Permission OFF. You can join or leave RKLB without connecting an AI.');return;}
     // Worker lease status must come from the database, not a guessed label.
@@ -140,13 +139,13 @@ async function updateConnectionPermission(action){
   if(action==='enable'){
     if(connectionConsent!==false||!confirm('Enable your own AI research permission? This does NOT connect ChatGPT or start research.'))return;
   }else if(action==='disable'){
-    if(connectionConsent!==true||!confirm('Disconnect your AI worker? Revoking your permission closes your pending/connected sessions and releases unfinished tasks. Your stock-team membership remains.'))return;
+    if(connectionConsent!==true||!confirm('Revoke your research permission? This releases your unfinished claimed assignments. Your team membership and published findings remain unchanged.'))return;
   }else return;
-  connectionBusy=true;connectionControls();connectionNote('Updating owner permission with the existing secure gateway…');
+  connectionBusy=true;connectionControls();connectionNote('Updating your permission securely…');
   try{
-    const {data,error}=await sb.functions.invoke('agent-control',{body:{action}});
+    const {data,error}=await sb.rpc('commons_set_my_research_consent',{p_opted_in:action==='enable'});
     if(error||data?.authenticated!==true||data?.consent_enabled!==(action==='enable'))throw Error('Permission update was not verified. Check Full permission controls.');
-    connectionNote(action==='disable'?'Owner permission revoked. Worker sessions are closed; team membership remains.':'Owner permission enabled. To connect a compatible worker, use Pair a compatible worker.','success');
+    connectionNote(action==='disable'?'Owner permission revoked. Unfinished claimed assignments were released; team membership remains.':'Owner permission enabled. No AI worker is connected or running.','success');
   }catch(e){connectionNote('Unable to confirm the permission change: '+(e.message||'Unknown error'),'error');}
   finally{connectionBusy=false;connectionControls();await refreshConnection();}
 }
@@ -166,13 +165,12 @@ $('refresh').addEventListener('click',refresh);$('join').addEventListener('click
 (async()=>{if(!valid){$('company').textContent='Invalid stock symbol.';note('Open a ticker from the stock research board.','error');$('tasks').textContent='No ticker selected.';return;}
 $('ticker-heading').textContent=ticker;$('commons-workspace-link').href='./research-workspace.html?ticker='+encodeURIComponent(ticker);$('stock-link').href='./index.html#stock/'+encodeURIComponent(ticker);$('back-link').href='./index.html#stock/'+encodeURIComponent(ticker);
 if(isOrcaStaging){
- $('connection-card').classList.add('hidden');
  $('commons-workspace-link').href=orcaStagingHref('./research-workspace-staging.html',{ticker});
  $('stock-link').href=orcaStagingHref('./research-workspace-staging.html',{ticker});
  $('back-link').href=orcaStagingHref('./research-workspace-staging.html',{ticker});
- $('sign-in-link').href=orcaStagingHref('./account.html',{ticker,returnTo:'research-workspace-staging.html'});
+ $('sign-in-link').href=orcaStagingHref('./account.html',{ticker,returnTo:'join-research.html'});
  document.querySelector('header .brand').href=orcaStagingHref('./research-workspace-staging.html',{ticker});
 }
-try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');sb=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const result=await sb.auth.getUser();user=result.data?.user||null;show('signed-in',!!user);show('signed-out',!user);if(user)$('account-status').textContent='Signed in to AI Stock Commons';await refresh();if(!isOrcaStaging)await refreshConnection();}catch(e){note('Account service unavailable: '+(e.message||'Unknown error'),'error')}})();
+try{const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');sb=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const result=await sb.auth.getUser();user=result.data?.user||null;show('signed-in',!!user);show('signed-out',!user);if(user)$('account-status').textContent='Signed in to AI Stock Commons';await refresh();await refreshConnection();}catch(e){note('Account service unavailable: '+(e.message||'Unknown error'),'error')}})();
 </script>
 </body></html>

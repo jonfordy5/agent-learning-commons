@@ -39,6 +39,9 @@ const {isOrcaStaging,projectUrl:URL,publishableKey:PUBLISHABLE_KEY}=await select
 const params=new URLSearchParams(location.search);
 const ticker=(params.get('ticker')||'RKLB').trim().toUpperCase();
 const returnTo=params.get('returnTo');
+const stagingReturnTo=isOrcaStaging
+  ?(['join-research.html','research-workspace-staging.html'].includes(returnTo)?returnTo:'research-workspace-staging.html')
+  :null;
 const status=document.getElementById('status');
 const controls=document.getElementById('auth-controls');
 const signed=document.getElementById('signed-in');
@@ -64,8 +67,9 @@ if(isOrcaStaging){
 function selectMode(next){mode=next;signinTab.setAttribute('aria-selected',String(next==='signin'));signupTab.setAttribute('aria-selected',String(next==='signup'));confirmWrap.hidden=(next!=='signup');confirmPassword.required=next==='signup';password.autocomplete=next==='signup'?'new-password':'current-password';submit.textContent=next==='signup'?'Create account':'Sign in';document.getElementById('mode-help').textContent=next==='signup'?'We’ll email a confirmation link. After confirming, return here to sign in.':'Use the email and password you registered with.';note('');}
 signinTab.addEventListener('click',()=>selectMode('signin'));
 signupTab.addEventListener('click',()=>selectMode('signup'));
-function showUser(user){const loggedIn=!!user;signed.style.display=loggedIn?'block':'none';controls.style.display=loggedIn?'none':'block';document.getElementById('account-email').textContent=loggedIn?user.email||'Authenticated participant':'';continueWorkspace.hidden=!(loggedIn&&isOrcaStaging&&returnTo==='research-workspace-staging.html');}
-continueWorkspace.addEventListener('click',()=>{if(isOrcaStaging&&returnTo==='research-workspace-staging.html')location.assign(orcaStagingHref('./research-workspace-staging.html',{ticker}));});
+function continueLabel(){return stagingReturnTo==='join-research.html'?'Continue to Join Research':'Continue to ORCA staging workspace';}
+function showUser(user){const loggedIn=!!user;signed.style.display=loggedIn?'block':'none';controls.style.display=loggedIn?'none':'block';document.getElementById('account-email').textContent=loggedIn?user.email||'Authenticated participant':'';continueWorkspace.hidden=!(loggedIn&&stagingReturnTo);if(stagingReturnTo)continueWorkspace.textContent=continueLabel();}
+continueWorkspace.addEventListener('click',()=>{if(stagingReturnTo)location.assign(orcaStagingHref('./'+stagingReturnTo,{ticker}));});
 async function showCurrent(){const {data,error}=await client.auth.getUser();if(error&&error.name!=='AuthSessionMissingError')console.warn('Authentication check:',error.message);showUser(data?.user||null);}
 try{
   const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
@@ -81,9 +85,11 @@ form.addEventListener('submit',async(event)=>{
   busy=true;submit.disabled=true;submit.textContent='Please wait…';note('');
   try{
     if(mode==='signup'){
-      // Use existing permitted root redirect; users can reopen account.html to log in afterward.
+      const stagingRedirectPath=stagingReturnTo==='join-research.html'
+        ?'join-research.html'
+        :'research-workspace.html';
       const emailRedirectTo=isOrcaStaging
-        ? orcaStagingHref('./research-workspace-staging.html',{ticker})
+        ? new URL(orcaStagingHref('./'+stagingRedirectPath,{ticker}),location.href).href
         : 'https://jonfordy5.github.io/agent-learning-commons/';
       const {error}=await client.auth.signUp({email:e,password:p,options:{emailRedirectTo}});
       if(error)throw error;

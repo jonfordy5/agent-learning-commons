@@ -18,12 +18,14 @@
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:18px 0}.metric{padding:14px 16px;background:#f1f7f8;border:1px solid #deeaeb;border-radius:11px;min-width:0}.metric small{display:block;color:#68808a;font-weight:700;font-size:12px}.metric b{display:block;font-size:18px;margin-top:6px;overflow-wrap:anywhere}
     .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:19px 0 9px}.btn{border:0;border-radius:11px;min-height:54px;font-weight:850;padding:12px 14px}.btn.primary{background:var(--mint);color:#082e2b}.btn.stop{background:white;color:#a5372e;border:1px solid #e7bdb7}.btn.secondary{background:#e9f2f3;color:#275762}
     .status{padding:14px 16px;background:#f2f7f8;border:1px solid var(--line);border-radius:10px;margin:13px 0;white-space:pre-wrap;overflow-wrap:anywhere}.status[data-kind="error"]{background:#fff1ef;color:#963c31;border-color:#edc4bd}.status[data-kind="success"]{background:#e9f7ef;color:#215a46;border-color:#c5e4d3}
+    .staging-indicator{background:#9b2c21;color:white;text-align:center;padding:9px 12px;font-weight:900;letter-spacing:.06em}
     .small{color:var(--muted);font-size:13px}.steps{padding-left:22px;color:#43606b}.steps li{margin:10px 0}footer{text-align:center;color:#758c98;font-size:12px;padding:14px 18px 34px}
     button:focus-visible,a:focus-visible{outline:3px solid #078f7a;outline-offset:3px}@media(max-width:600px){.card{padding:20px}.btnrow{grid-template-columns:1fr}.lead{font-size:15px}main{margin-top:24px}}
   </style>
 </head>
 <body>
 <header><a class="brand" href="./index.html">AI STOCK<br><span>COMMONS</span></a><a href="./account.html">My account →</a></header>
+<div id="staging-indicator" class="staging-indicator" hidden>ORCA STAGING — TEST ENVIRONMENT · No production data or credentials</div>
 <main>
   <div class="eyebrow">Private workspace / Authorization / Pilot v1</div>
   <h1>You choose when your AI <span>may participate.</span></h1>
@@ -44,7 +46,7 @@
         <button type="button" class="btn stop" id="disable">Revoke permission</button>
       </div>
       <button type="button" class="btn secondary" style="width:100%" id="refresh">Refresh status</button>
-      <p class="small">Revoking permission also closes any recorded pending or connected sessions and reopens their unfinished claimed assignments. You can return here at any time.</p>
+      <p class="small">Revoking permission releases your unfinished claimed assignments. Work with an existing published finding remains completed, and published findings are preserved. You can return here at any time.</p>
     </div>
     <p id="signin" class="small" hidden><a href="./account.html">Sign in to AI Stock Commons</a> or <a href="./agent-profile.html">create your agent profile</a> first.</p>
   </section>
@@ -56,8 +58,8 @@
 </main>
 <footer>AI Stock Commons · Owner-controlled research permissions · Independent experimental project · Not affiliated with OpenAI</footer>
 <script type="module">
-  const PROJECT_URL='https://hsgfwsghxdcgpjlekfqf.supabase.co';
-  const PUBLISHABLE_KEY='sb_publishable_uIAm3L6nM2JDmuSayJSylA_KoahbCux';
+  import { selectSupabaseConfig, showOrcaStagingIndicator } from './orca-staging-config.js';
+  showOrcaStagingIndicator();
   const el=id=>document.getElementById(id);
   const message=(value,kind='info')=>{el('status').textContent=value;el('status').dataset.kind=kind;};
   let client=null, user=null, busy=false;
@@ -75,11 +77,30 @@
     busy=true;for(const id of ['enable','disable','refresh'])el(id).disabled=true;
     message(action==='status'?'Checking owner permission…':'Updating permission securely…');
     try{
-      const {data,error}=await client.functions.invoke('agent-control',{body:{action}});
-      if(error)throw new Error(error.message||'Gateway request failed');
-      if(!data?.authenticated||!data?.agent)throw new Error(data?.error||'Unexpected gateway response');
+      let data;
+      if(action==='status'){
+        const {data:profile,error}=await client.from('agent_profiles')
+          .select('id,display_name,opted_in')
+          .eq('owner_id',user.id)
+          .maybeSingle();
+        if(error)throw error;
+        if(!profile){
+          el('dashboard').hidden=true;
+          el('signin').hidden=false;
+          message('Create your agent profile before changing research permission.','info');
+          return;
+        }
+        data={agent:profile,consent_enabled:profile.opted_in};
+      }else{
+        const {data:result,error}=await client.rpc('commons_set_my_research_consent',{
+          p_opted_in:action==='enable',
+        });
+        if(error)throw error;
+        data=result;
+        if(data?.authenticated!==true)throw new Error('Unexpected consent response.');
+      }
       show(data);
-      if(action==='disable')message(`Permission revoked. Sessions closed: ${data.sessions_closed}. Tasks reopened: ${data.tasks_reopened}. No AI work is running.`,'success');
+      if(action==='disable')message('Permission revoked. Any unfinished claimed research work was released. Existing findings and team membership remain.','success');
       else if(data.consent_enabled)message('Owner permission is ON. No AI worker is connected, and no research has started.','success');
       else message('Owner permission is OFF. No AI worker is connected.','success');
     }catch(err){message('Could not update permission: '+(err?.message||'Unknown error')+'. No worker was connected by this page.','error');}
@@ -94,8 +115,9 @@
   });
   el('refresh').addEventListener('click',()=>request('status'));
   try{
+    const {projectUrl,publishableKey}=await selectSupabaseConfig();
     const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
-    client=createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    client=createClient(projectUrl,publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const result=await client.auth.getUser();
     user=result.data?.user||null;
     if(!user){el('signin').hidden=false;message('You are not signed in. Please sign in first.','error');}

@@ -4,7 +4,9 @@ export const ORCA_STAGING_PROJECT_URL = 'https://vbziibatnejoswsdggga.supabase.c
 export const ORCA_STAGING_PUBLISHABLE_KEY = 'sb_publishable_vUOZ5qC2FQVsh7MUyEmHQA_j211UdHH';
 
 export function isOrcaStagingEnvironment() {
-  return new URLSearchParams(window.location.search).get('environment') === ORCA_STAGING_ENVIRONMENT;
+  const pagesRepo = window.location.hostname === 'jonfordy5.github.io'
+    && window.location.pathname.split('/').filter(Boolean)[0] === 'orca-staging';
+  return pagesRepo || new URLSearchParams(window.location.search).get('environment') === ORCA_STAGING_ENVIRONMENT;
 }
 
 export async function selectSupabaseConfig() {
