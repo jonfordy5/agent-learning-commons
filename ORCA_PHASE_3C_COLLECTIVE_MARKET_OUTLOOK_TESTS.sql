@@ -1,9 +1,9 @@
 -- PROPOSAL ONLY — do not execute without separate approval.
 -- Run only in isolated ORCA staging after explicit approval of
 -- ORCA_PHASE_3C_COLLECTIVE_MARKET_OUTLOOK_PROPOSED.sql.
--- Uses the Phase 2 dedicated RKLB test researchers. All synthetic rows,
--- temporary membership-alias changes, and consent changes roll back. Existing
--- assignments and findings are read only.
+-- Uses the Phase 2 dedicated RKLB test researchers. Synthetic assignment,
+-- finding, and outlook rows plus temporary membership-alias and consent
+-- changes roll back. Existing assignments and findings are read only.
 
 begin;
 
@@ -11,8 +11,12 @@ do $preflight$
 declare
   v_user_a uuid;
   v_user_b uuid;
+  v_task_a uuid := gen_random_uuid();
+  v_task_b uuid := gen_random_uuid();
   v_function record;
+  v_publish_function record;
   v_policy_expression text;
+  v_owner_policy_expression text;
 begin
   if current_user <> 'postgres' then
     raise exception 'Run this staging test as postgres';
@@ -54,6 +58,60 @@ begin
   ) then
     raise exception 'Both dedicated test profiles must reference existing Auth users';
   end if;
+  select pg_catalog.lower(
+           coalesce(pg_catalog.pg_get_expr(policy.polqual, policy.polrelid), '')
+           || ' '
+           || coalesce(pg_catalog.pg_get_expr(policy.polwithcheck, policy.polrelid), '')
+         )
+    into strict v_owner_policy_expression
+    from pg_catalog.pg_policy policy
+    join pg_catalog.pg_class relation
+      on relation.oid = policy.polrelid
+    join pg_catalog.pg_namespace relation_schema
+      on relation_schema.oid = relation.relnamespace
+   where relation_schema.nspname = 'public'
+     and relation.relname = 'agent_profiles'
+     and policy.polname = 'Owners manage their agent profiles'
+     and policy.polcmd = '*';
+  if pg_catalog.strpos(v_owner_policy_expression, 'owner_id') = 0
+     or pg_catalog.strpos(v_owner_policy_expression, 'auth.uid') = 0 then
+    raise exception 'Agent profile policy must bind profile management to auth.uid()';
+  end if;
+  if not exists (
+    select 1
+      from pg_catalog.pg_index index_data
+      join pg_catalog.pg_class index_relation
+        on index_relation.oid = index_data.indexrelid
+      join pg_catalog.pg_class table_relation
+        on table_relation.oid = index_data.indrelid
+      join pg_catalog.pg_namespace table_schema
+        on table_schema.oid = table_relation.relnamespace
+     where table_schema.nspname = 'public'
+       and table_relation.relname = 'agent_profiles'
+       and index_relation.relname = 'agent_profiles_display_name_handle_key'
+       and index_data.indisunique
+       and index_data.indisvalid
+       and pg_catalog.strpos(
+         pg_catalog.lower(pg_catalog.pg_get_indexdef(index_data.indexrelid)),
+         'lower(btrim(display_name))'
+       ) > 0
+  ) then
+    raise exception 'Case-insensitive normalized agent profile handle index is missing';
+  end if;
+  if not exists (
+    select 1
+      from pg_catalog.pg_constraint constraint_data
+      join pg_catalog.pg_class relation
+        on relation.oid = constraint_data.conrelid
+      join pg_catalog.pg_namespace relation_schema
+        on relation_schema.oid = relation.relnamespace
+     where relation_schema.nspname = 'public'
+       and relation.relname = 'agent_profiles'
+       and constraint_data.conname = 'agent_profiles_display_name_trimmed_check'
+       and constraint_data.contype = 'c'
+  ) then
+    raise exception 'Trimmed profile handle constraint is missing';
+  end if;
   if not exists (
     select 1
       from pg_catalog.pg_class c
@@ -85,7 +143,7 @@ begin
      ) or not pg_catalog.has_column_privilege(
        'authenticated', 'public.commons_market_outlooks', 'researcher_alias', 'SELECT'
      ) then
-    raise exception 'Clients may read pseudonymous attribution but not Auth user IDs';
+    raise exception 'Clients may read profile attribution but not Auth user IDs';
   end if;
   if pg_catalog.has_table_privilege(
        'authenticated', 'public.commons_market_outlooks', 'INSERT'
@@ -95,6 +153,15 @@ begin
        'authenticated', 'public.commons_market_outlooks', 'DELETE'
      ) then
     raise exception 'Authenticated clients must not write outlook rows directly';
+  end if;
+  if pg_catalog.has_table_privilege(
+       'authenticated', 'public.commons_research_findings', 'UPDATE'
+     ) or pg_catalog.has_table_privilege(
+       'authenticated', 'public.commons_research_findings', 'DELETE'
+     ) or pg_catalog.has_column_privilege(
+       'authenticated', 'public.commons_research_findings', 'contributor_alias', 'UPDATE'
+     ) then
+    raise exception 'Authenticated clients must not edit or delete historical findings';
   end if;
   if pg_catalog.has_function_privilege(
        'anon',
@@ -124,15 +191,66 @@ begin
      or v_function.owner_name <> 'postgres'
      or not coalesce(v_function.proconfig @> array['search_path=""'], false)
      or pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'for share') = 0
+     or pg_catalog.strpos(v_function.prosrc, 'agent_profiles') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'p.owner_id = v_user') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'p.opted_in is true') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'p.display_name') = 0
      or pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'for share')
         > pg_catalog.strpos(pg_catalog.lower(v_function.prosrc), 'insert into public.commons_market_outlooks') then
     raise exception 'RPC must be owner-owned SECURITY DEFINER with an empty search_path and no caller-selected identity';
   end if;
+  select p.prosecdef, p.proconfig, p.prosrc,
+         pg_catalog.pg_get_userbyid(p.proowner) as owner_name
+    into strict v_publish_function
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.oid = pg_catalog.to_regprocedure(
+       'public.commons_publish_finding(uuid,text,jsonb,timestamptz,text)'
+     );
+  if not v_publish_function.prosecdef
+     or v_publish_function.owner_name <> 'postgres'
+     or not coalesce(v_publish_function.proconfig @> array['search_path=""'], false)
+     or pg_catalog.strpos(pg_catalog.lower(v_publish_function.prosrc), 'p.display_name') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_publish_function.prosrc), 'p.owner_id = v_user') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_publish_function.prosrc), 'p.opted_in is true') = 0
+     or pg_catalog.strpos(pg_catalog.lower(v_publish_function.prosrc), 'm.display_name') > 0
+     or pg_catalog.strpos(pg_catalog.lower(v_publish_function.prosrc), 'for share') = 0
+     or pg_catalog.has_function_privilege(
+       'anon',
+       'public.commons_publish_finding(uuid,text,jsonb,timestamptz,text)',
+       'EXECUTE'
+     )
+     or not pg_catalog.has_function_privilege(
+       'authenticated',
+       'public.commons_publish_finding(uuid,text,jsonb,timestamptz,text)',
+       'EXECUTE'
+     ) then
+    raise exception 'Finding RPC must remain owner-owned SECURITY DEFINER, empty-search-path, authenticated-only';
+  end if;
 
   perform pg_catalog.set_config('orca.test.outlook_user_a', v_user_a::text, true);
   perform pg_catalog.set_config('orca.test.outlook_user_b', v_user_b::text, true);
+  perform pg_catalog.set_config('orca.test.finding_task_a', v_task_a::text, true);
+  perform pg_catalog.set_config('orca.test.finding_task_b', v_task_b::text, true);
+
+  insert into public.research_tasks (
+    id, ticker, research_area, research_question, status, claimed_owner_id,
+    claimed_until
+  ) values
+    (v_task_a, 'RKLB', 'Phase 3C attribution test',
+     'Verify owner-bound publication attribution.', 'claimed', v_user_a,
+     now() + interval '30 minutes'),
+    (v_task_b, 'RKLB', 'Phase 3C authorization test',
+     'Verify publication rejects another owner claim.', 'claimed', v_user_b,
+     now() + interval '30 minutes');
+
   update public.stock_research_memberships
-     set display_name = 'ORCA Impersonation Probe'
+     set display_name = (
+       select profile.display_name
+         from public.agent_profiles profile
+        where profile.owner_id = v_user_b
+     )
    where user_id = v_user_a
      and ticker = 'RKLB';
 end;
@@ -144,6 +262,10 @@ do $authorized_tests$
 declare
   v_user_a uuid := current_setting('orca.test.outlook_user_a')::uuid;
   v_user_b uuid := current_setting('orca.test.outlook_user_b')::uuid;
+  v_task_a uuid := current_setting('orca.test.finding_task_a')::uuid;
+  v_task_b uuid := current_setting('orca.test.finding_task_b')::uuid;
+  v_updated_rows bigint;
+  v_finding_id uuid;
   v_outlook_id uuid;
   v_second_outlook_id uuid;
   v_exposed_id uuid;
@@ -154,6 +276,52 @@ declare
 begin
   perform pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
   perform pg_catalog.set_config('request.jwt.claim.sub', v_user_a::text, true);
+
+  v_failed := false;
+  begin
+    update public.agent_profiles
+       set display_name = 'orca test researcher 2'
+     where owner_id = v_user_a;
+  exception when unique_violation then
+    v_failed := true;
+  end;
+  if not v_failed then
+    raise exception 'Case-insensitive duplicate profile handle unexpectedly succeeded';
+  end if;
+
+  update public.agent_profiles
+     set display_name = 'Unauthorized Profile Change'
+   where owner_id = v_user_b;
+  get diagnostics v_updated_rows = row_count;
+  if v_updated_rows <> 0 then
+    raise exception 'An authenticated owner changed another account''s profile handle';
+  end if;
+
+  v_failed := false;
+  begin
+    perform public.commons_publish_finding(
+      v_task_b,
+      'This unauthorized test publication must fail because the assignment belongs to another owner.',
+      '["https://www.sec.gov/"]'::jsonb,
+      now(),
+      'Synthetic rollback-only authorization test.'
+    );
+  exception when raise_exception then
+    v_failed := true;
+  end;
+  if not v_failed then
+    raise exception 'Publication unexpectedly succeeded for another owner''s assignment';
+  end if;
+
+  v_finding_id := public.commons_publish_finding(
+    v_task_a,
+    'This synthetic test finding verifies that profile handles, rather than membership names, are recorded.',
+    '["https://www.sec.gov/"]'::jsonb,
+    now(),
+    'Synthetic rollback-only attribution test.'
+  );
+  perform pg_catalog.set_config('orca.test.finding_id_a', v_finding_id::text, true);
+
   v_outlook_id := public.commons_submit_market_outlook(
     'RKLB', 'bullish',
     'This speculative test interpretation is grounded in a supplied source URL, states uncertainty, and is not a prediction or trade instruction.',
@@ -165,14 +333,13 @@ begin
     into strict v_author_alias, v_expires_at
     from public.commons_market_outlooks o
    where o.id = v_outlook_id;
-  if v_author_alias is distinct from 'R-' || pg_catalog.md5(v_user_a::text)
-     or v_author_alias = 'ORCA Impersonation Probe'
+  if v_author_alias is distinct from 'ORCA Test Researcher 1'
+     or v_author_alias = 'ORCA Test Researcher 2'
      or v_expires_at <= now()
      or v_expires_at > now() + interval '30 days' then
-    raise exception 'Owner-derived alias or the expected unexpired outlook window is incorrect';
+    raise exception 'Owner-bound profile handle or expected unexpired outlook window is incorrect';
   end if;
   perform pg_catalog.set_config('orca.test.outlook_id_a', v_outlook_id::text, true);
-
   v_failed := false;
   begin
     select o.researcher_id into strict v_exposed_id
@@ -225,8 +392,48 @@ begin
     raise exception 'Direct outlook DELETE unexpectedly succeeded';
   end if;
 
+  v_failed := false;
+  begin
+    update public.commons_research_findings
+       set contributor_alias = contributor_alias
+     where ticker = 'RKLB';
+    get diagnostics v_updated_rows = row_count;
+  exception when insufficient_privilege then
+    v_failed := true;
+  end;
+  if not v_failed or v_updated_rows <> 0 then
+    raise exception 'Authenticated client unexpectedly updated historical findings';
+  end if;
+
+  update public.agent_profiles
+     set display_name = 'ORCA Test Researcher 1 Renamed'
+   where owner_id = v_user_a;
+  select o.researcher_alias
+    into strict v_author_alias
+    from public.commons_market_outlooks o
+   where o.id = v_outlook_id;
+  if v_author_alias is distinct from 'ORCA Test Researcher 1' then
+    raise exception 'Changing a profile handle unexpectedly rewrote historical outlook attribution';
+  end if;
+
   perform pg_catalog.set_config('request.jwt.claim.sub', v_user_b::text, true);
   perform public.commons_set_my_research_consent(false);
+
+  v_failed := false;
+  begin
+    perform public.commons_publish_finding(
+      v_task_b,
+      'This synthetic test publication must fail while the owner has opted out.',
+      '["https://www.sec.gov/"]'::jsonb,
+      now(),
+      'Synthetic rollback-only consent test.'
+    );
+  exception when insufficient_privilege then
+    v_failed := true;
+  end;
+  if not v_failed then
+    raise exception 'Finding publication unexpectedly succeeded while owner consent was OFF';
+  end if;
 
   v_failed := false;
   begin
@@ -255,8 +462,8 @@ begin
   select o.researcher_alias into strict v_author_alias
     from public.commons_market_outlooks o
    where o.id = v_second_outlook_id;
-  if v_author_alias is distinct from 'R-' || pg_catalog.md5(v_user_b::text) then
-    raise exception 'Second researcher attribution must derive from the authenticated owner';
+  if v_author_alias is distinct from 'ORCA Test Researcher 2' then
+    raise exception 'Second researcher attribution must come from that authenticated owner profile';
   end if;
   select pg_catalog.count(*)
     into v_perspective_count
@@ -266,13 +473,13 @@ begin
      or not exists (
        select 1 from public.commons_market_outlooks o
         where o.id = v_outlook_id
-          and o.researcher_alias = 'R-' || pg_catalog.md5(v_user_a::text)
+          and o.researcher_alias = 'ORCA Test Researcher 1'
           and o.stance = 'bullish'
      )
      or not exists (
        select 1 from public.commons_market_outlooks o
         where o.id = v_second_outlook_id
-          and o.researcher_alias = 'R-' || pg_catalog.md5(v_user_b::text)
+          and o.researcher_alias = 'ORCA Test Researcher 2'
           and o.stance = 'bearish'
      ) then
     raise exception 'A second researcher must not overwrite the first interpretation';
@@ -321,19 +528,38 @@ do $stored_attribution_tests$
 declare
   v_user_a uuid := current_setting('orca.test.outlook_user_a')::uuid;
   v_user_b uuid := current_setting('orca.test.outlook_user_b')::uuid;
+  v_task_a uuid := current_setting('orca.test.finding_task_a')::uuid;
+  v_finding_id uuid := current_setting('orca.test.finding_id_a')::uuid;
   v_id_a uuid := current_setting('orca.test.outlook_id_a')::uuid;
   v_id_b uuid := current_setting('orca.test.outlook_id_b')::uuid;
 begin
   if not exists (
+    select 1
+      from public.commons_research_findings finding
+     where finding.id = v_finding_id
+       and finding.task_id = v_task_a
+       and finding.contributor_id = v_user_a
+       and finding.contributor_alias = 'ORCA Test Researcher 1'
+  ) or not exists (
+    select 1
+      from public.research_tasks task
+     where task.id = v_task_a
+       and task.status = 'completed'
+       and task.assigned_agent = 'ORCA Test Researcher 1'
+  ) then
+    raise exception 'Finding and completed-task attribution must use the authenticated owner profile handle';
+  end if;
+
+  if not exists (
     select 1 from public.commons_market_outlooks o
      where o.id = v_id_a
        and o.researcher_id = v_user_a
-       and o.researcher_alias = 'R-' || pg_catalog.md5(v_user_a::text)
+       and o.researcher_alias = 'ORCA Test Researcher 1'
   ) or not exists (
     select 1 from public.commons_market_outlooks o
      where o.id = v_id_b
        and o.researcher_id = v_user_b
-       and o.researcher_alias = 'R-' || pg_catalog.md5(v_user_b::text)
+       and o.researcher_alias = 'ORCA Test Researcher 2'
   ) then
     raise exception 'Stored owner IDs and public aliases must match authenticated owners';
   end if;

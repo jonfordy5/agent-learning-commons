@@ -1,18 +1,215 @@
 -- PROPOSAL ONLY — do not execute without separate approval.
 -- Staging-only addition for the isolated ORCA staging project
 -- (jonfordy5/orca-staging). No production changes or existing research rows
--- are modified. Public attribution is a stable pseudonymous label derived
--- from the authenticated owner ID; raw Auth IDs are never granted to clients.
+-- are modified. Public attribution uses the unique, owner-bound agent profile
+-- handle; raw Auth IDs are never granted to clients. Profile handles are
+-- self-selected display names, not verified real-world identities. The unique
+-- index prevents exact case/space-normalized duplicates, not visual look-alikes
+-- or first-claim squatting on a handle that is not already claimed.
 -- Review schema assumptions and run the paired security tests before approval.
 
 begin;
+
+do $handle_preflight$
+begin
+  if exists (
+    select 1
+      from public.agent_profiles p
+     where p.display_name <> pg_catalog.btrim(p.display_name)
+        or pg_catalog.char_length(pg_catalog.btrim(p.display_name)) not between 1 and 60
+  ) then
+    raise exception 'Normalize existing agent profile handles before migration';
+  end if;
+
+  if exists (
+    select pg_catalog.lower(pg_catalog.btrim(p.display_name))
+      from public.agent_profiles p
+     group by pg_catalog.lower(pg_catalog.btrim(p.display_name))
+    having count(*) > 1
+  ) then
+    raise exception 'Resolve duplicate case-insensitive agent profile handles before migration';
+  end if;
+
+  if not exists (
+    select 1
+      from pg_catalog.pg_constraint constraint_data
+      join pg_catalog.pg_class relation
+        on relation.oid = constraint_data.conrelid
+      join pg_catalog.pg_namespace relation_schema
+        on relation_schema.oid = relation.relnamespace
+     where relation_schema.nspname = 'public'
+       and relation.relname = 'commons_research_findings'
+       and constraint_data.conname = 'commons_research_findings_contributor_alias_check'
+       and constraint_data.contype = 'c'
+  ) then
+    raise exception 'Expected existing finding attribution constraint is missing';
+  end if;
+
+  if exists (
+    select 1
+      from public.commons_research_findings finding
+     where finding.contributor_alias is null
+        or finding.contributor_alias
+           <> pg_catalog.btrim(finding.contributor_alias)
+        or pg_catalog.char_length(
+             pg_catalog.btrim(finding.contributor_alias)
+           ) not between 1 and 60
+  ) then
+    raise exception 'Resolve null, untrimmed, or invalid existing finding aliases before widening attribution handles';
+  end if;
+end;
+$handle_preflight$;
+
+alter table public.agent_profiles
+  add constraint agent_profiles_display_name_trimmed_check
+  check (
+    display_name = pg_catalog.btrim(display_name)
+    and pg_catalog.char_length(display_name) between 1 and 60
+  );
+
+create unique index agent_profiles_display_name_handle_key
+  on public.agent_profiles (
+    pg_catalog.lower(pg_catalog.btrim(display_name))
+  );
+
+alter table public.commons_research_findings
+  drop constraint commons_research_findings_contributor_alias_check;
+alter table public.commons_research_findings
+  add constraint commons_research_findings_contributor_alias_handle_check
+  check (
+    contributor_alias = pg_catalog.btrim(contributor_alias)
+    and pg_catalog.char_length(contributor_alias) between 1 and 60
+  );
+
+-- New findings snapshot the researcher's unique profile handle. Existing
+-- finding rows and their contributor_alias values are never updated.
+create or replace function public.commons_publish_finding(
+  p_task_id uuid,
+  p_summary text,
+  p_source_urls jsonb,
+  p_observed_at timestamp with time zone,
+  p_limitations text default ''::text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_user uuid := auth.uid();
+  v_task public.research_tasks%rowtype;
+  v_alias text;
+  v_source jsonb;
+  v_id uuid;
+begin
+  if v_user is null then
+    raise exception 'Sign in required' using errcode = '42501';
+  end if;
+
+  -- Lock the opted-in owner profile and snapshot its public handle for this
+  -- finding and the completed assignment.
+  select p.display_name
+    into v_alias
+    from public.agent_profiles p
+   where p.owner_id = v_user
+     and p.opted_in is true
+   for share;
+
+  if not found then
+    raise exception 'Owner permission is OFF' using errcode = '42501';
+  end if;
+
+  select *
+    into v_task
+    from public.research_tasks
+   where id = p_task_id
+   for update;
+
+  if not found
+     or v_task.status <> 'claimed'
+     or v_task.claimed_owner_id is distinct from v_user
+     or v_task.claimed_until <= now()
+     or v_task.claimed_until is null then
+    raise exception 'An unexpired assignment claim belonging to you is required';
+  end if;
+
+  if not exists (
+    select 1
+      from public.stock_research_memberships m
+     where m.user_id = v_user
+       and m.ticker = v_task.ticker
+  ) then
+    raise exception 'Team membership required' using errcode = '42501';
+  end if;
+
+  if p_summary is null
+     or char_length(btrim(p_summary)) not between 40 and 700 then
+    raise exception 'Summary must contain 40 to 700 characters';
+  end if;
+
+  if p_source_urls is null
+     or jsonb_typeof(p_source_urls) <> 'array'
+     or jsonb_array_length(p_source_urls) not between 1 and 5 then
+    raise exception 'Provide 1 to 5 source links';
+  end if;
+
+  for v_source in
+    select value from jsonb_array_elements(p_source_urls)
+  loop
+    if jsonb_typeof(v_source) <> 'string'
+       or char_length(v_source #>> '{}') > 500
+       or (v_source #>> '{}') !~* '^https?://[^[:space:]/]+(/[^[:space:]]*)?$' then
+      raise exception 'Sources must be valid http(s) URLs up to 500 characters';
+    end if;
+  end loop;
+
+  if p_observed_at is null
+     or p_observed_at > now() + interval '5 minutes'
+     or p_observed_at < now() - interval '30 days' then
+    raise exception 'Evidence observation time must be within the last 30 days';
+  end if;
+
+  if char_length(coalesce(p_limitations, '')) > 400 then
+    raise exception 'Limitations must be at most 400 characters';
+  end if;
+
+  insert into public.commons_research_findings (
+    task_id, ticker, research_area, contributor_id, contributor_alias,
+    summary, source_urls, observed_at, limitations
+  ) values (
+    v_task.id, v_task.ticker, v_task.research_area, v_user, v_alias,
+    btrim(p_summary), p_source_urls, p_observed_at, coalesce(p_limitations, '')
+  ) returning id into v_id;
+
+  update public.research_tasks
+     set status = 'completed',
+         claimed_owner_id = null,
+         claimed_session_id = null,
+         claimed_until = null,
+         assigned_agent = v_alias,
+         updated_at = now()
+   where id = p_task_id;
+
+  return v_id;
+end;
+$function$;
+
+alter function public.commons_publish_finding(
+  uuid, text, jsonb, timestamp with time zone, text
+) owner to postgres;
+revoke all on function public.commons_publish_finding(
+  uuid, text, jsonb, timestamp with time zone, text
+) from public, anon, authenticated;
+grant execute on function public.commons_publish_finding(
+  uuid, text, jsonb, timestamp with time zone, text
+) to authenticated;
 
 create table public.commons_market_outlooks (
   id uuid not null default gen_random_uuid() primary key,
   ticker text not null references public.stocks(ticker) on delete restrict,
   researcher_id uuid not null references auth.users(id) on delete restrict,
   researcher_alias text not null
-    check (char_length(btrim(researcher_alias)) between 2 and 40),
+    check (char_length(btrim(researcher_alias)) between 1 and 60),
   stance text not null
     check (stance in ('bullish', 'bearish', 'neutral')),
   reasoning text not null
@@ -88,7 +285,8 @@ begin
     raise exception 'Sign in required' using errcode = '42501';
   end if;
 
-  perform 1
+  select p.display_name
+    into v_alias
     from public.agent_profiles p
    where p.owner_id = v_user
      and p.opted_in is true
@@ -97,6 +295,8 @@ begin
     raise exception 'Owner research approval is required'
       using errcode = '42501';
   end if;
+
+  v_alias := pg_catalog.btrim(v_alias);
 
   if not exists (
     select 1
@@ -107,8 +307,6 @@ begin
     raise exception 'Research team membership is required'
       using errcode = '42501';
   end if;
-  v_alias := 'R-' || pg_catalog.md5(v_user::text);
-
   if p_ticker is null
      or p_ticker !~ '^[A-Z][A-Z0-9.]{0,9}$'
      or not exists (
@@ -222,10 +420,10 @@ grant execute on function public.commons_submit_market_outlook(
 ) to authenticated;
 
 comment on table public.commons_market_outlooks is
-  'Append-only, speculative owner-approved research interpretations; aliases are derived from auth.uid(); no consensus or trading signals.';
+  'Append-only, speculative owner-approved research interpretations; public labels are trusted owner-bound identities or stable pseudonyms; no consensus or trading signals.';
 comment on function public.commons_submit_market_outlook(
   text, text, text, uuid[], jsonb, timestamptz, text, text
 ) is
-  'Submits an immutable outlook only for auth.uid() with opted-in owner permission and ticker membership.';
+  'Submits an immutable outlook only for auth.uid() with opted-in owner permission and ticker membership; attribution is snapshotted from the owner-bound profile handle.';
 
 commit;
