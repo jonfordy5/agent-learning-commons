@@ -2,8 +2,9 @@
 -- Run only in isolated ORCA staging after explicit approval of
 -- ORCA_PHASE_3C_COLLECTIVE_MARKET_OUTLOOK_PROPOSED.sql.
 -- Uses the Phase 2 dedicated RKLB test researchers. Synthetic assignment,
--- finding, and outlook rows plus temporary membership-alias and consent
--- changes roll back. Existing assignments and findings are read only.
+-- finding, and outlook rows plus temporary stock, membership, and consent
+-- changes roll back. Existing assignments and findings are read only. If any
+-- assertion fails, the transaction is aborted; issue ROLLBACK before retrying.
 
 begin;
 
@@ -11,8 +12,18 @@ do $preflight$
 declare
   v_user_a uuid;
   v_user_b uuid;
-  v_task_a uuid := gen_random_uuid();
-  v_task_b uuid := gen_random_uuid();
+  v_test_ticker text :=
+    'O' || pg_catalog.upper(
+      pg_catalog.substr(
+        pg_catalog.replace(pg_catalog.gen_random_uuid()::text, '-', ''),
+        1,
+        9
+      )
+    );
+  v_metric_a record;
+  v_metric_b record;
+  v_finding_count bigint;
+  v_finding_fingerprint text;
   v_function record;
   v_publish_function record;
   v_policy_expression text;
@@ -47,6 +58,84 @@ begin
   if not exists (select 1 from public.stocks s where s.ticker = 'RKLB') then
     raise exception 'RKLB stock fixture is missing';
   end if;
+  if exists (select 1 from public.stocks s where s.ticker = v_test_ticker) then
+    raise exception 'Synthetic test ticker already exists; choose a fresh fixture ticker';
+  end if;
+  select count(*),
+         pg_catalog.md5(
+           coalesce(
+             pg_catalog.string_agg(
+               pg_catalog.to_jsonb(finding)::text,
+               E'\n' order by finding.id
+             ),
+             ''
+           )
+         )
+    into v_finding_count, v_finding_fingerprint
+    from public.commons_research_findings finding
+   where finding.ticker = 'RKLB';
+  if v_finding_count <> 5
+     or (select count(*)
+           from public.commons_research_findings finding
+          where finding.ticker = 'RKLB'
+            and finding.expires_at > now()) <> 5 then
+    raise exception 'RKLB finding baseline changed; expected five total and unexpired findings';
+  end if;
+  perform pg_catalog.set_config(
+    'orca.test.rklb_finding_count', v_finding_count::text, true
+  );
+  perform pg_catalog.set_config(
+    'orca.test.rklb_finding_fingerprint', v_finding_fingerprint, true
+  );
+  if exists (
+    select 1
+      from public.research_tasks task
+     where task.claimed_owner_id in (v_user_a, v_user_b)
+       and task.status = 'claimed'
+       and task.claimed_until > now()
+  ) then
+    raise exception 'A dedicated test researcher already has an active claim';
+  end if;
+  if exists (
+    select request.requested_by
+      from public.commons_research_requests request
+     where request.requested_by in (v_user_a, v_user_b)
+       and request.created_task
+       and request.created_at >= now() - interval '1 hour'
+     group by request.requested_by
+    having count(*) >= 20
+  ) then
+    raise exception 'A dedicated test researcher has reached the assignment creation rate limit';
+  end if;
+  select catalog.category_key, catalog.metric_key
+    into strict v_metric_a
+    from public.commons_research_metric_catalog catalog
+   where catalog.active
+   order by catalog.category_key, catalog.metric_key
+   limit 1;
+  select catalog.category_key, catalog.metric_key
+    into strict v_metric_b
+    from public.commons_research_metric_catalog catalog
+   where catalog.active
+     and (catalog.category_key, catalog.metric_key)
+         is distinct from (v_metric_a.category_key, v_metric_a.metric_key)
+   order by catalog.category_key, catalog.metric_key
+   limit 1;
+  perform pg_catalog.set_config(
+    'orca.test.ticker', v_test_ticker, true
+  );
+  perform pg_catalog.set_config(
+    'orca.test.category_a', v_metric_a.category_key, true
+  );
+  perform pg_catalog.set_config(
+    'orca.test.metric_a', v_metric_a.metric_key, true
+  );
+  perform pg_catalog.set_config(
+    'orca.test.category_b', v_metric_b.category_key, true
+  );
+  perform pg_catalog.set_config(
+    'orca.test.metric_b', v_metric_b.metric_key, true
+  );
   if not exists (
     select 1
       from auth.users u
@@ -229,30 +318,44 @@ begin
     raise exception 'Finding RPC must remain owner-owned SECURITY DEFINER, empty-search-path, authenticated-only';
   end if;
 
+  if not pg_catalog.has_function_privilege(
+       'authenticated',
+       'public.commons_create_or_renew_research(text,text,text,uuid,uuid)',
+       'EXECUTE'
+     ) or not pg_catalog.has_function_privilege(
+       'authenticated',
+       'public.commons_claim_task(uuid)',
+       'EXECUTE'
+     ) then
+    raise exception 'Authenticated research creation and claim RPCs must be available';
+  end if;
+  if not exists (
+    select 1
+      from pg_catalog.pg_trigger trigger_data
+      join pg_catalog.pg_class relation
+        on relation.oid = trigger_data.tgrelid
+      join pg_catalog.pg_namespace relation_schema
+        on relation_schema.oid = relation.relnamespace
+      join pg_catalog.pg_proc trigger_function
+        on trigger_function.oid = trigger_data.tgfoid
+     where relation_schema.nspname = 'public'
+       and relation.relname = 'research_tasks'
+       and trigger_data.tgname = 'research_tasks_enforce_lineage'
+       and not trigger_data.tgisinternal
+       and trigger_data.tgenabled <> 'D'
+       and trigger_function.proname = 'commons_enforce_research_task_lineage'
+  ) then
+    raise exception 'Enabled research-task lineage trigger is missing';
+  end if;
+
   perform pg_catalog.set_config('orca.test.outlook_user_a', v_user_a::text, true);
   perform pg_catalog.set_config('orca.test.outlook_user_b', v_user_b::text, true);
-  perform pg_catalog.set_config('orca.test.finding_task_a', v_task_a::text, true);
-  perform pg_catalog.set_config('orca.test.finding_task_b', v_task_b::text, true);
-
-  insert into public.research_tasks (
-    id, ticker, research_area, research_question, status, claimed_owner_id,
-    claimed_until
-  ) values
-    (v_task_a, 'RKLB', 'Phase 3C attribution test',
-     'Verify owner-bound publication attribution.', 'claimed', v_user_a,
-     now() + interval '30 minutes'),
-    (v_task_b, 'RKLB', 'Phase 3C authorization test',
-     'Verify publication rejects another owner claim.', 'claimed', v_user_b,
-     now() + interval '30 minutes');
-
-  update public.stock_research_memberships
-     set display_name = (
-       select profile.display_name
-         from public.agent_profiles profile
-        where profile.owner_id = v_user_b
-     )
-   where user_id = v_user_a
-     and ticker = 'RKLB';
+  insert into public.stocks (ticker, company_name)
+  values (v_test_ticker, 'ORCA rollback-only security test fixture');
+  insert into public.stock_research_memberships (user_id, ticker, display_name)
+  values
+    (v_user_a, v_test_ticker, 'ORCA Test Researcher 2'),
+    (v_user_b, v_test_ticker, 'ORCA Test Researcher 1');
 end;
 $preflight$;
 
@@ -262,8 +365,15 @@ do $authorized_tests$
 declare
   v_user_a uuid := current_setting('orca.test.outlook_user_a')::uuid;
   v_user_b uuid := current_setting('orca.test.outlook_user_b')::uuid;
-  v_task_a uuid := current_setting('orca.test.finding_task_a')::uuid;
-  v_task_b uuid := current_setting('orca.test.finding_task_b')::uuid;
+  v_test_ticker text := current_setting('orca.test.ticker');
+  v_category_a text := current_setting('orca.test.category_a');
+  v_metric_a text := current_setting('orca.test.metric_a');
+  v_category_b text := current_setting('orca.test.category_b');
+  v_metric_b text := current_setting('orca.test.metric_b');
+  v_task_a uuid;
+  v_task_b uuid;
+  v_creation_result jsonb;
+  v_claim_result jsonb;
   v_updated_rows bigint;
   v_finding_id uuid;
   v_outlook_id uuid;
@@ -277,6 +387,36 @@ begin
   perform pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
   perform pg_catalog.set_config('request.jwt.claim.sub', v_user_a::text, true);
 
+  v_creation_result := public.commons_create_or_renew_research(
+    v_test_ticker, v_category_a, v_metric_a, gen_random_uuid()
+  );
+  if v_creation_result->>'status' is distinct from 'open' then
+    raise exception 'Synthetic researcher A task must be created open';
+  end if;
+  v_task_a := (v_creation_result->>'id')::uuid;
+  v_claim_result := public.commons_claim_task(v_task_a);
+  if v_claim_result->>'id' is distinct from v_task_a::text
+     or coalesce((v_claim_result->>'already_claimed')::boolean, true) then
+    raise exception 'Researcher A synthetic current task was not claimed through the authorized RPC';
+  end if;
+  perform pg_catalog.set_config('orca.test.finding_task_a', v_task_a::text, true);
+
+  perform pg_catalog.set_config('request.jwt.claim.sub', v_user_b::text, true);
+  v_creation_result := public.commons_create_or_renew_research(
+    v_test_ticker, v_category_b, v_metric_b, gen_random_uuid()
+  );
+  if v_creation_result->>'status' is distinct from 'open' then
+    raise exception 'Synthetic researcher B task must be created open';
+  end if;
+  v_task_b := (v_creation_result->>'id')::uuid;
+  v_claim_result := public.commons_claim_task(v_task_b);
+  if v_claim_result->>'id' is distinct from v_task_b::text
+     or coalesce((v_claim_result->>'already_claimed')::boolean, true) then
+    raise exception 'Researcher B synthetic current task was not claimed through the authorized RPC';
+  end if;
+  perform pg_catalog.set_config('orca.test.finding_task_b', v_task_b::text, true);
+
+  perform pg_catalog.set_config('request.jwt.claim.sub', v_user_a::text, true);
   v_failed := false;
   begin
     update public.agent_profiles
@@ -532,6 +672,9 @@ declare
   v_finding_id uuid := current_setting('orca.test.finding_id_a')::uuid;
   v_id_a uuid := current_setting('orca.test.outlook_id_a')::uuid;
   v_id_b uuid := current_setting('orca.test.outlook_id_b')::uuid;
+  v_rklb_count bigint;
+  v_rklb_unexpired_count bigint;
+  v_rklb_fingerprint text;
 begin
   if not exists (
     select 1
@@ -548,6 +691,28 @@ begin
        and task.assigned_agent = 'ORCA Test Researcher 1'
   ) then
     raise exception 'Finding and completed-task attribution must use the authenticated owner profile handle';
+  end if;
+
+  select count(*),
+         count(*) filter (where finding.expires_at > now()),
+         pg_catalog.md5(
+           coalesce(
+             pg_catalog.string_agg(
+               pg_catalog.to_jsonb(finding)::text,
+               E'\n' order by finding.id
+             ),
+             ''
+           )
+         )
+    into v_rklb_count, v_rklb_unexpired_count, v_rklb_fingerprint
+    from public.commons_research_findings finding
+   where finding.ticker = 'RKLB';
+  if v_rklb_count
+       <> current_setting('orca.test.rklb_finding_count')::bigint
+     or v_rklb_unexpired_count <> 5
+     or v_rklb_fingerprint
+       <> current_setting('orca.test.rklb_finding_fingerprint') then
+    raise exception 'The five existing RKLB findings changed during the rollback-only tests';
   end if;
 
   if not exists (
