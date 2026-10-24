@@ -40,9 +40,13 @@ completed successfully. The package's staging-only config selects the staging
 project regardless of query parameters.
 
 The deployment package is assembled locally in `orca-staging-deployment/`.
-Run `node prepare-orca-staging.mjs` to regenerate it from the existing shared
-workspace; it does not duplicate or independently maintain the workspace
-implementation. Its exact allowlist is `index.html` (the staging route alias),
+Run `node prepare-orca-staging.mjs` to regenerate the package's shared pages.
+The `research-workspace.html` page is a staging-only maintained source override:
+the builder verifies its Phase 3C marker and RPC wiring and refuses to replace
+it with the shared production workspace. Keep the staging repository checked
+out at `orca-staging-deployment/`, with that page committed there, before
+preparing a deployment. Its
+exact allowlist is `index.html` (the staging route alias),
 `research-workspace-staging.html`, `research-workspace.html`, `account.html`,
 `agent-profile.html`, `join-research.html`, `participation.html`,
 `orca-staging-config.js`, and `commons-site-tools.js`.

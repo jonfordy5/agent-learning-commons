@@ -6,7 +6,6 @@ const root = dirname(fileURLToPath(import.meta.url));
 const output = join(root, 'orca-staging-deployment');
 const sourceFiles = [
   'research-workspace-staging.html',
-  'research-workspace.html',
   'account.html',
   'agent-profile.html',
   'join-research.html',
@@ -26,6 +25,14 @@ const expectedFiles = [
 ];
 
 const stagingConfigSource = await readFile(join(root, 'orca-staging-config.js'), 'utf8');
+const workspacePath = join(output, 'research-workspace.html');
+const stagingWorkspace = await readFile(workspacePath, 'utf8');
+if (
+  !stagingWorkspace.includes('<meta name="orca-staging-market-outlook" content="phase-3c">')
+  || !stagingWorkspace.includes("rpc('commons_submit_market_outlook'")
+) {
+  throw new Error('The staging-only Phase 3C workspace source is missing; refusing to replace it with the shared production workspace.');
+}
 const configValue = (name) => {
   const match = stagingConfigSource.match(new RegExp(`export const ${name} = '([^']+)';`));
   if (!match) throw new Error(`Missing staging setting ${name}; refusing to build deployment files.`);
@@ -202,45 +209,6 @@ await writeFile(joinPath, joinPage);
 
 const participationPath = join(output, 'participation.html');
 let participation = await readFile(participationPath, 'utf8');
-const workspacePath = join(output, 'research-workspace.html');
-let workspace = await readFile(workspacePath, 'utf8');
-workspace = replaceRequired(
-  workspace,
-  '<section class="card" id="work-start"><h2>Use your personal ChatGPT to research this stock</h2><p class="sub"><span class="step">1</span> Join this stock team and enable your existing owner permission. <span class="step">2</span> In ChatGPT, start a <strong>Work</strong> task asking your assistant to operate this research workspace; sign in there when prompted. <span class="step">3</span> Your assistant researches, claims, and publishes through this site while you watch this live board. No API key or manual report-copying required for this pilot.</p><p class="sub">This is a user-initiated Work pilot, not yet the eventual one-click Connect My AI experience. We will only call an AI “connected” after demonstrating its first authenticated research publication.</p><a class="btn alt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a><span class="mini" style="margin-left:9px">Switch to Work in ChatGPT to start an authorized web task.</span></section>',
-  '<section class="card" id="work-start"><h2>Start your personal assistant in ChatGPT Work</h2><p class="sub"><span class="step">1</span> Sign in to this staging website and turn research permission ON. Website sign-in and permission are separate checks; neither connects an AI. <span class="step">2</span> Open ChatGPT Work and start a task asking your personal assistant to use this research workspace. Sign in to the website there if asked. <span class="step">3</span> Follow the workspace status to see whether your assignment is actually claimed. This site does not launch or verify an AI connection or research activity.</p><a class="btn alt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a></section>',
-  'ChatGPT Work instructions',
-);
-workspace = replaceRequired(
-  workspace,
-  '<h2 id="request-heading">Request or renew a research assignment</h2>\n      <p class="sub">Choose an approved metric to create its first assignment or return its current assignment. For a completed or cancelled task, use its renewal action below to preserve task lineage.</p>',
-  '<h2 id="request-heading">Request and claim a research assignment</h2>\n      <p class="sub">Choose an approved metric to request and claim it in one action. Completed or cancelled metrics use their renewal action below to preserve research-series lineage.</p>',
-  'assignment instructions',
-);
-workspace = replaceRequired(
-  workspace,
-  '<button class="btn" id="request-assignment" type="button" disabled>Request assignment</button>',
-  '<button class="btn" id="request-assignment" type="button" disabled>Request and claim metric</button>',
-  'combined request control',
-);
-workspace = replaceRequired(
-  workspace,
-  "btn.textContent='Request next research cycle'",
-  "btn.textContent='Request and claim next cycle'",
-  'lineage-preserving request control',
-);
-workspace = replaceRequired(
-  workspace,
-  '<button class="btn" id="next" type="button" disabled>Claim next available metric</button>',
-  '<button class="btn" id="next" type="button" disabled hidden>Claim next available metric</button>',
-  'redundant staging claim control',
-);
-workspace = replaceRequired(
-  workspace,
-  '<p class="sub">One active claim per participant, reserved for 30 minutes. Other AIs can verify completed metrics later. Once one report is published, the assistant may claim another unclaimed metric.</p>',
-  '<p class="sub">One active claim per participant, reserved for 30 minutes. Use the selected-metric action above to request and claim, or claim an existing open assignment below. Completed and cancelled metrics use their renewal action to preserve research lineage.</p>',
-  'staging assignment instructions',
-);
-await writeFile(workspacePath, workspace);
 
 participation = replaceRequired(
   participation,
@@ -426,21 +394,18 @@ if (
   throw new Error('Staging workspace is missing the combined request/claim flow, idempotency, lineage, or status handling.');
 }
 if (
-  !stagedWorkspace.includes('Compact Research Overview')
-  || !stagedWorkspace.includes('Latest published finding')
-  || !stagedWorkspace.includes('Assignment status')
-  || !stagedWorkspace.includes('Previous assignment cycles')
-  || !stagedWorkspace.includes('All public research findings')
+  !stagedWorkspace.includes('<meta name="orca-staging-market-outlook" content="phase-3c">')
   || !stagedWorkspace.includes('Collective Market Outlook')
   || !stagedWorkspace.includes('Bullish')
   || !stagedWorkspace.includes('Bearish')
   || !stagedWorkspace.includes('Neutral / uncertain')
-  || !stagedWorkspace.includes('not verified predictions, consensus votes, or trade instructions')
-  || !stagedWorkspace.includes('No interpretations submitted.')
-  || !stagedWorkspace.includes('Submissions are not enabled yet.')
-  || /Collective agreement|Collective disagreement/.test(stagedWorkspace)
+  || !stagedWorkspace.includes("from('commons_market_outlooks')")
+  || !stagedWorkspace.includes("rpc('commons_submit_market_outlook'")
+  || !stagedWorkspace.includes('not a consensus or trading signal')
+  || !stagedWorkspace.includes('textContent=outlook.researcher_alias')
+  || stagedWorkspace.includes('researcher_id')
 ) {
-  throw new Error('Staging workspace is missing the compact evidence overview or safe, read-only market outlook states.');
+  throw new Error('Staging workspace is missing its safe, public Phase 3C outlook integration.');
 }
 
 console.log(`Prepared ${outputFiles.length} allowlisted public files in ${output}`);
